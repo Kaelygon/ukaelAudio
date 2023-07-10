@@ -39,8 +39,8 @@ typedef struct {
 
 //wave arguments (uint16_t time, frac, u8arg, u16arg)
 typedef struct{
-//	uint16_t 	time;			//uint16_t time
-	uint32_t 	time;			//won't work with intel 8086
+	uint16_t 	time;			//uint16_t time
+//	uint32_t 	time;			//won't work with intel 8086
 	Frac 		freq;			//Frac{frac.a,frac.b}
 	uint8_t 	u8arg[4];		//uint8_t u8arg[4]
 	uint16_t 	u16arg[4];		//uint16_t u16arg[4]

@@ -21,7 +21,7 @@ static inline uint8_t ukaelSine(WaveArg *arg) {
 
 //Crunchy Sine
 static inline uint8_t ukaelCSine(WaveArg *arg) {
-	uint8_t time8 = arg->time*arg->freq.a/arg->freq.b;
+	uint8_t time8 = arg->time*arg->freq.a/arg->freq.b; //frequency
 
 	uint8_t secondHalf = time8 & 0b10000000;
 	time8 = !(time8 & 0b01000000) ? ~time8 : time8;	//invert even quarters
@@ -102,8 +102,8 @@ static inline uint8_t ukaelRWalk(WaveArg *arg) {
 
 	uint8_t prevSample = arg->u8arg[1];
 	uint8_t random = time16;
-	random=(uint16_t)random*arg->freq.a/arg->freq.b;
-	random=prevSample+(1-sign)*random-(sign)*random; //add or subtract random/2 and reuse random as result
+	random=(uint16_t)random*arg->freq.a/arg->freq.b; //frequency
+	random=prevSample+(1-sign)*random-(sign)*random; //add or subtract random
 	if(sign==1 && random>prevSample){ //underflow 
 		return 0;
 	}
@@ -124,10 +124,11 @@ static inline uint8_t ukaelSineL(WaveArg *arg) {
 }
 */
 
+// 1/sqrt(x) - 16
 static inline uint8_t ukaelTesting(WaveArg *arg) {
     uint8_t time8 = arg->time * arg->freq.a / arg->freq.b;
-	
-    return time8|131;
+	time8 = (time8==0) ? 255 : ((UINT8_MAX/(time8+8))<<3)+16-(time8>>6);
+	return time8;
 }
 
 /*
