@@ -16,19 +16,19 @@ int main( int argc, char *argv[] )  {
 	ENTROPY^=rdrand(ENTROPY);
 
 	AudioData sample[SAMPLE_CHANNELS+1]; //+1 buffer channel to prevent seg fault 
-
+//59,16 = 440hz at 32768hz
 	WaveArg wargs0 = {
 		.time = 	DEFAULT_AMPLITUDE,
-		.freq = 	(Frac){55,16},	//440hz at 32768hz
-		.u8arg = 	{0,128,0,0},
-		.u16arg = 	{0,0,0,0}
+		.freq = 	(Frac){59,16},
+		.u8arg = 	{1,0,0,0},
+		.u16arg = 	{127,0,0,0}
 	};
 
 	WaveArg wargs1 = {
 		.time = 	DEFAULT_AMPLITUDE,
-		.freq = 	(Frac){1,9},
-		.u8arg = 	{0,128,0,0},
-		.u16arg = 	{0,0,0,0}
+		.freq = 	(Frac){1,128},
+		.u8arg = 	{1,0,0,0},
+		.u16arg = 	{129,0,0,0}
 	};
 
 	//allocate
@@ -48,8 +48,8 @@ int main( int argc, char *argv[] )  {
     sampleAlloc(&sample[1]);
 
     // Generate the wave
-	generateTone(&sample[0], 200, "sine", &wargs0 );
-	generateTone(&sample[1], 200, "rwalk", &wargs1 );	//write random walk to sample[1] at amplitude 255
+	generateTone(&sample[0], 16, "sine", &wargs0 );
+	generateTone(&sample[1], 255, "rwalk", &wargs1 );	//write random walk to sample[1] at amplitude 255
 
 	//TODO: mixing, time tables, midi-like setup, and other functions
 
@@ -58,7 +58,6 @@ int main( int argc, char *argv[] )  {
 
 	// Initialize and allocate audio data for each channel
 	for (size_t i = 0; i < SAMPLE_CHANNELS+1; i++) {
-		if(sample[i].allocated!=1){sample[i].allocated=0;}
 		channelArray[i] = &sample[i];  // Store the address of each sample in channelArray
 	}
 	

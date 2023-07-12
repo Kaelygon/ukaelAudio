@@ -20,8 +20,14 @@ static uint16_t rdrand(){
 //random seed. no MT protection
 static uint16_t ENTROPY=13381;
 void reseed(){
-	ENTROPY^=ENTROPY<<9;
-	ENTROPY^=ENTROPY>>7;
+	ENTROPY<<=5;
+	ENTROPY>>=3;
+	if((ENTROPY&8191)){return;}//if any last 13 bits 1 return
+		uint16_t buf;
+		__asm__ __volatile__ ("rdtsc" : "=d" (buf));
+		ENTROPY+=buf<<7;
+	if((ENTROPY&7)){return;}//if any last 3 bits 1 return
+		__asm__ __volatile__ ("rdrand %0"  : "=r" (ENTROPY));
 	return;
 }
 /*

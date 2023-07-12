@@ -10,8 +10,8 @@
 
 //#define CYCLES_PER_SECOND (3698778634.42102954886)
 #define CYCLES_PER_SECOND (3700000000) //3.7ghz
-#define SAMPLE_COUNT (1<<15)
-#define REPEAT (1<<14)
+#define SAMPLE_COUNT (1<<14)
+#define REPEAT (1<<12)
 //benchmark cpu cycles
 int main(){
 	AudioData sample;
@@ -22,7 +22,7 @@ int main(){
 	
 	WaveArg wargs = {
 		.time = 128,
-		.freq = (Frac){1,1},
+		.freq = (Frac){1,3},
 		.u8arg = {128,128},
 		.u16arg = {128,128}
 	};
@@ -32,18 +32,18 @@ int main(){
 	clock_t timest;
 	uint8_t warmups=4;
 
-	#define TEST_ALL 1
+	#define TEST_ALL 0
 	for(uint32_t k=0;k<waveCount+warmups;k++){
 		sampleAlloc(&sample);
 		#if TEST_ALL
 			const char* testKey = waveList[k%waveCount].id; //test all functions
 		#else
-			const char* testKey = "sine"; //test single function
+			const char* testKey = "rwalk"; //test single function
 		#endif
 
 		// Generate the sine wave data
-		timest = clock();
 		cyclesst = rdtsc();
+		timest = clock();
 				for(uint32_t j=0;j<REPEAT;j++){
 						generateTone(&sample, 255, testKey, &wargs );
 				}
@@ -62,6 +62,7 @@ int main(){
 		}
 
 		sample.data=memset(sample.data,128,sample.size*sizeof(uint8_t)); //clear to prevent caching
+		ENTROPY=rand();
 	}
 
 	

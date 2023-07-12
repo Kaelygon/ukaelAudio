@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
-#include <portaudio.h>
 
 #include "ukaelH/ukaelWaveC.h"
 #include "ukaelH/ukaelToneC.h"

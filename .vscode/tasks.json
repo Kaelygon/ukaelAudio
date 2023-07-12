@@ -10,9 +10,9 @@
 			"args": [
 				"-g",
 				"-lportaudio",
-				"-Os",
-//				"-fsanitize=address",			
+				"-Os",		
 				"-O3",
+//				"-fsanitize=address",	
 				"-Wall",
 				"-Wno-unused-function",
 				"${file}",

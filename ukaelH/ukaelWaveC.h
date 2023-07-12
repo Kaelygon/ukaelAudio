@@ -91,27 +91,38 @@ static inline uint8_t ukaelWNoise(WaveArg *arg) {
 
 //random walk, slow
 static inline uint8_t ukaelRWalk(WaveArg *arg) {
-	uint16_t time16 = arg->time;
+	uint16_t time16 = arg->time&127;
 
-	reseed();
+	time16^=ENTROPY>>9;
+	time16^=ENTROPY<<7;
 	
-	time16^=ENTROPY<<9;
-	time16^=ENTROPY>>7;
-		
+	reseed();
+
 	uint8_t sign = time16>>15; //add=0 subtract=1
 
-	uint8_t prevSample = arg->u8arg[1];
+	uint8_t prevSample = arg->u16arg[0];
 	uint8_t random = time16;
 	random=(uint16_t)random*arg->freq.a/arg->freq.b; //frequency
-	random=prevSample+(1-sign)*random-(sign)*random; //add or subtract random
-	if(sign==1 && random>prevSample){ //underflow 
-		return 0;
-	}
+	random= sign ? prevSample-random : prevSample+random; //add or subtract random
 	if(sign==0 && random<prevSample){ //overflow
 		return 255;
 	}
-	arg->u8arg[1]=random;
+	if(sign==1 && random>prevSample){ //underflow 
+		return 0;
+	}
+	arg->u16arg[0]=random;
 	return random;
+}
+
+//rounded square wave
+static inline uint8_t ukaelTesting(WaveArg *arg) {
+    uint8_t time8 = arg->time * arg->freq.a / arg->freq.b;
+	uint8_t secondHalf = time8 & 0b10000000;
+	time8 = !(time8 & 0b01000000) ? time8 : ~time8;	//invert even quarters
+	time8<<=1;	//triangle wave
+	time8=255/(time8+((time8==0)<<2)); //255/time8
+	time8 = secondHalf ? time8 : ~time8;	//invert 2nd half
+	return time8;
 }
 
 /*
@@ -123,14 +134,14 @@ static inline uint8_t ukaelSineL(WaveArg *arg) {
     return time8;
 }
 */
-
+/*
 // 1/sqrt(x) - 16
 static inline uint8_t ukaelTesting(WaveArg *arg) {
     uint8_t time8 = arg->time * arg->freq.a / arg->freq.b;
 	time8 = (time8==0) ? 255 : ((UINT8_MAX/(time8+8))<<3)+16-(time8>>6);
 	return time8;
 }
-
+*/
 /*
 #include <math.h>
 //accurate sine very slow
