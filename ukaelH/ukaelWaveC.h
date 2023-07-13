@@ -98,7 +98,7 @@ static inline uint8_t ukaelRWalk(WaveArg *arg) {
 	
 	reseed();
 
-	uint8_t sign = time16>>15; //add=0 subtract=1
+	uint8_t sign = time16&1; //add=0 subtract=1
 
 	uint8_t prevSample = arg->u16arg[0];
 	uint8_t random = time16;
