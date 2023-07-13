@@ -16,18 +16,18 @@ int main( int argc, char *argv[] )  {
 	ENTROPY^=rdrand(ENTROPY);
 
 	AudioData sample[SAMPLE_CHANNELS+1]; //+1 buffer channel to prevent seg fault 
-//59,16 = 440hz at 32768hz
+//55,16 = 440hz at 32768hz
 	WaveArg wargs0 = {
 		.time = 	DEFAULT_AMPLITUDE,
-		.freq = 	(Frac){59,16},
-		.u8arg = 	{1,0,0,0},
+		.freq = 	(Frac){1,32},
+		.u8arg = 	{0,0,0,0},
 		.u16arg = 	{127,0,0,0}
 	};
 
 	WaveArg wargs1 = {
 		.time = 	DEFAULT_AMPLITUDE,
-		.freq = 	(Frac){1,128},
-		.u8arg = 	{1,0,0,0},
+		.freq = 	(Frac){55,16},
+		.u8arg = 	{0,0,0,0},
 		.u16arg = 	{129,0,0,0}
 	};
 
@@ -48,8 +48,8 @@ int main( int argc, char *argv[] )  {
     sampleAlloc(&sample[1]);
 
     // Generate the wave
-	generateTone(&sample[0], 16, "sine", &wargs0 );
-	generateTone(&sample[1], 255, "rwalk", &wargs1 );	//write random walk to sample[1] at amplitude 255
+	generateTone(&sample[0], 255, "rwalk", &wargs0 ); 	//write random walk to sample[1] at amplitude 255
+	generateTone(&sample[1], 64, "triangle", &wargs1 );
 
 	//TODO: mixing, time tables, midi-like setup, and other functions
 

@@ -17,17 +17,21 @@ static uint16_t rdrand(){
 }
 
 
-//random seed. no MT protection
-static uint16_t ENTROPY=13381;
+//random seed
+//volatile required if using gcc -O3
+volatile static uint16_t ENTROPY=13381;
 void reseed(){
-	ENTROPY<<=5;
-	ENTROPY>>=3;
-	if((ENTROPY&8191)){return;}//if any last 13 bits 1 return
-		uint16_t buf;
+	ENTROPY<<=1;
+	if(ENTROPY&255){return;}//n%256!=0
+   		ENTROPY*=ENTROPY&255;
+	if(ENTROPY&8191){return;}//n%8192!=0
+		volatile uint16_t buf;
+		//some variance from clock
 		__asm__ __volatile__ ("rdtsc" : "=a" (buf));
-		ENTROPY+=buf<<7;
-	if((ENTROPY&7)){return;}//if any last 3 bits 1 return
-		__asm__ __volatile__ ("rdrand %0"  : "=r" (ENTROPY));
+		ENTROPY^=buf;
+	if(ENTROPY&7){return;}//if any last 3 bits 1 return
+		//probably excessive but marginal performance impact
+		__asm__ __volatile__ ("rdrand %0"  : "=r" (ENTROPY)); 
 	return;
 }
 /*

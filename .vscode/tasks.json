@@ -9,8 +9,8 @@
 			"command": "/usr/bin/gcc",
 			"args": [
 				"-g",
-				"-lportaudio",
-				"-Os",		
+				"-lportaudio",	
+				"-Os",	
 				"-O3",
 //				"-fsanitize=address",	
 				"-Wall",

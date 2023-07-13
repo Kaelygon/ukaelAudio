@@ -80,12 +80,12 @@ static const WaveMap waveList[] = {
 	//(uint8)
 	{"sine", 		ukaelSine		},
 	{"saw", 		ukaelSaw		},
-	{"noise",	 	ukaelNoise		},
 	{"triangle", 	ukaelTriangle	},
 	{"square", 		ukaelSquare		},
-	{"pulse", 		ukaelPulse		},
+	{"noise",	 	ukaelNoise		},
 	{"rwalk", 		ukaelRWalk		},
-	{"wnoise", 		ukaelWNoise		},
+	{"filtri", 		ukaelFiltri		},
+	{"pulse", 		ukaelPulse		},
 	{"csine", 		ukaelCSine		},
 //	{"lsine", 		ukaelSineL		},
 //	{"sinef", 		ukaelSinef		},
@@ -117,10 +117,10 @@ static const void generateTone(
 		printf("generateTone () : Invalid key!\n");
 		return;
 	}
-
 	// Generate
 	uint16_t value;
-	for (uint16_t i = 0; i < (samples->size); ++i) {
+
+	for (uint16_t i = 0; i < samples->size; ++i) {
 		wargs->time = i; //copy time
 		
 		//pass arguments and generate sample

@@ -72,31 +72,58 @@ static inline uint8_t ukaelPulse(WaveArg *arg) {
 }
 
 
-//Time dependent noise
-static inline uint8_t ukaelNoise(WaveArg *arg) {
-	uint16_t time16 = arg->time*arg->freq.a/arg->freq.b;
-	reseed();
-	time16^=ENTROPY<<9;
-	time16^=ENTROPY>>7;
-	return time16;
-}
-
 
 //White noise
-static inline uint8_t ukaelWNoise(WaveArg *arg) {
+static inline uint8_t ukaelNoise(WaveArg *arg) {
 	reseed();
 	return ENTROPY;
 }
 
 
+//Pass filtered triangle noise, slow
+//freq{maxD,minD} D=Delta
+//Similar freq values generate harmonics of triangle waves
+//{255,1} generates high pitch noise
+static inline uint8_t ukaelFiltri(WaveArg *arg) {
+	reseed();
+
+	uint8_t sign = arg->u8arg[1]; //add=0 subtract=1
+
+	uint8_t prevSample = arg->u8arg[0];
+	uint8_t random = ENTROPY;
+
+	//high pass
+	if(random < arg->freq.b){ //too small difference
+		random = arg->freq.b;
+	}else
+	//low pass
+	if(random > arg->freq.a){ //too high difference
+		random = arg->freq.a;
+	}
+
+	random= sign ? prevSample-random : prevSample+random; //add or subtract random
+	if(sign==0 && random<prevSample){ //overflow
+		arg->u8arg[1] = 1; //invert sign
+		random = 254;
+	}else
+	if(sign==1 && random>prevSample){ //underflow 
+		arg->u8arg[1] = 0;
+		random = 1;
+	}
+	arg->u8arg[0]=random;
+	return random;
+}
+
+
 //random walk, slow
 static inline uint8_t ukaelRWalk(WaveArg *arg) {
-	uint16_t time16 = arg->time&127;
-
-	time16^=ENTROPY>>9;
-	time16^=ENTROPY<<7;
-	
 	reseed();
+	
+	uint16_t time16 = arg->time;
+	uint16_t tmp = ENTROPY;
+
+	time16^=tmp<<5;
+	time16^=tmp>>7;
 
 	uint8_t sign = time16&1; //add=0 subtract=1
 
@@ -106,7 +133,7 @@ static inline uint8_t ukaelRWalk(WaveArg *arg) {
 	random= sign ? prevSample-random : prevSample+random; //add or subtract random
 	if(sign==0 && random<prevSample){ //overflow
 		return 255;
-	}
+	}else
 	if(sign==1 && random>prevSample){ //underflow 
 		return 0;
 	}
@@ -114,9 +141,16 @@ static inline uint8_t ukaelRWalk(WaveArg *arg) {
 	return random;
 }
 
+static inline uint8_t ukaelTesting(WaveArg *arg) {
+    uint16_t time16 = arg->time;
+    
+    return time16;
+}
+
+/*
 //rounded square wave
 static inline uint8_t ukaelTesting(WaveArg *arg) {
-    uint8_t time8 = arg->time * arg->freq.a / arg->freq.b;
+	uint8_t time8 = arg->time * arg->freq.a / arg->freq.b;
 	uint8_t secondHalf = time8 & 0b10000000;
 	time8 = !(time8 & 0b01000000) ? time8 : ~time8;	//invert even quarters
 	time8<<=1;	//triangle wave
@@ -125,19 +159,18 @@ static inline uint8_t ukaelTesting(WaveArg *arg) {
 	return time8;
 }
 
-/*
 //sine look up table
 static inline uint8_t ukaelSineL(WaveArg *arg) {
 	
-    uint8_t time8 = arg->time * arg->freq.a / arg->freq.b;
+	uint8_t time8 = arg->time * arg->freq.a / arg->freq.b;
 		time8=sineLut[time8];
-    return time8;
+	return time8;
 }
 */
 /*
 // 1/sqrt(x) - 16
 static inline uint8_t ukaelTesting(WaveArg *arg) {
-    uint8_t time8 = arg->time * arg->freq.a / arg->freq.b;
+	uint8_t time8 = arg->time * arg->freq.a / arg->freq.b;
 	time8 = (time8==0) ? 255 : ((UINT8_MAX/(time8+8))<<3)+16-(time8>>6);
 	return time8;
 }
@@ -148,5 +181,31 @@ static inline uint8_t ukaelTesting(WaveArg *arg) {
 static inline uint8_t ukaelSinef(WaveArg *arg){
 	uint8_t time8 = arg->time*arg->freq.a/arg->freq.b;
 	return (sin((float)time8/40.7436654)*128+128);
+}
+*/
+/*whacky saw line
+static inline uint8_t ukaelNoiseSaw(WaveArg *arg) {
+	uint8_t updater = arg->u8arg[1]++;
+		
+	uint8_t prevSample = arg->u16arg[0];
+	uint16_t random = ENTROPY;
+
+	if( updater > (arg->freq.b) ){ //reseed only periodically
+		uint8_t sign = random&1;
+		
+		reseed();
+		
+		prevSample+= sign ? -random : random;
+
+		arg->u16arg[0]=prevSample;
+		arg->u8arg[1]=0;
+		return prevSample;
+	}
+
+	uint8_t sign = random&1; //add=0 subtract=1
+
+	prevSample+= sign ? -random/(arg->freq.b) : random/(arg->freq.b);
+	arg->u16arg[0]=prevSample;
+	return prevSample;
 }
 */
