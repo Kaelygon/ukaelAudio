@@ -76,7 +76,7 @@ static inline uint8_t ukaelPulse(WaveArg *arg) {
 //White noise
 static inline uint8_t ukaelNoise(WaveArg *arg) {
 	reseed();
-	return ENTROPY;
+	return KAENTROPY.a;
 }
 
 
@@ -90,7 +90,7 @@ static inline uint8_t ukaelFiltri(WaveArg *arg) {
 	uint8_t sign = arg->u8arg[1]; //add=0 subtract=1
 
 	uint8_t prevSample = arg->u8arg[0];
-	uint8_t random = ENTROPY;
+	uint8_t random = KAENTROPY.a;
 
 	//high pass
 	if(random < arg->freq.b){ //too small difference
@@ -120,7 +120,7 @@ static inline uint8_t ukaelRWalk(WaveArg *arg) {
 	reseed();
 	
 	uint16_t time16 = arg->time;
-	uint16_t tmp = ENTROPY;
+	uint16_t tmp = KAENTROPY.a;
 
 	time16^=tmp<<5;
 	time16^=tmp>>7;
@@ -188,7 +188,7 @@ static inline uint8_t ukaelNoiseSaw(WaveArg *arg) {
 	uint8_t updater = arg->u8arg[1]++;
 		
 	uint8_t prevSample = arg->u16arg[0];
-	uint16_t random = ENTROPY;
+	uint16_t random = KAENTROPY.a;
 
 	if( updater > (arg->freq.b) ){ //reseed only periodically
 		uint8_t sign = random&1;
