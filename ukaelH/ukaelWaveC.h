@@ -119,11 +119,7 @@ static inline uint8_t ukaelFiltri(WaveArg *arg) {
 static inline uint8_t ukaelRWalk(WaveArg *arg) {
 	reseed();
 	
-	uint16_t time16 = arg->time;
-	uint16_t tmp = KAENTROPY.a;
-
-	time16^=tmp<<5;
-	time16^=tmp>>7;
+	uint16_t time16 = KAENTROPY.a;
 
 	uint8_t sign = time16&1; //add=0 subtract=1
 
