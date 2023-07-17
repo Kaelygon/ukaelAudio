@@ -12,67 +12,54 @@
 #define PLAYAUDIO = 1;
 
 int main( int argc, char *argv[] )  {
+	
 	__asm__ __volatile__ ("rdtsc" : "=a" (KAENTROPY.a));
+	__asm__ __volatile__ ("rdtsc" : "=d" (KAENTROPY.b));
 
 	AudioData sample[SAMPLE_CHANNELS+1]; //+1 buffer channel to prevent seg fault 
-//55,16 = 440hz at 32768hz
+
 	WaveArg wargs0 = {
 		.time = 	DEFAULT_AMPLITUDE,
-		.freq = 	(Frac){1,64},
-		.u8arg = 	{0,0,0,0},
+		.freq = 	(Frac){1,64},	//55,16 = 440hz at 32768hz
+		.u8arg = 	{128,0,0,0},
 		.u16arg = 	{127,0,0,0}
 	};
-
 	WaveArg wargs1 = {
 		.time = 	DEFAULT_AMPLITUDE,
 		.freq = 	(Frac){1,64},
-		.u8arg = 	{0,0,0,0},
+		.u8arg = 	{128,0,0,0},
 		.u16arg = 	{129,0,0,0}
 	};
-
+	
 	//allocate
 	sample[0] = (AudioData){
 		.data 		= NULL,
-		.size 		= BUFFER_SIZE/2,
+		.size 		= FRAMES_PER_BUFFER,
 		.position 	= 0,
 		.allocated	= 0
 	};
 	sample[1] = (AudioData){
 		.data 		= NULL,
-		.size 		= BUFFER_SIZE/2,
+		.size 		= FRAMES_PER_BUFFER,
 		.position 	= 0,
 		.allocated  = 0
 	};
-    sampleAlloc(&sample[0]);
-    sampleAlloc(&sample[1]);
-
-    // Generate the wave
-	generateTone(&sample[0], 255, "rwalk", &wargs0 ); 	//write random walk to sample[1] at amplitude 255
-	generateTone(&sample[1], 255, "rwalk", &wargs1 );
-
-	//TODO: mixing, time tables, midi-like setup, and other functions
+	
 
   	//create pointer to AudioData sample[]
 	AudioData* channelArray[SAMPLE_CHANNELS+1];
 
-	// Initialize and allocate audio data for each channel
-	for (size_t i = 0; i < SAMPLE_CHANNELS+1; i++) {
-		channelArray[i] = &sample[i];  // Store the address of each sample in channelArray
-	}
-	
-	
 	AudioData rawAudioData;
 	rawAudioData.allocated=0;
 	rawAudioData.size=0;
 	rawAudioData.position=0;
-	interleaveChannels(&rawAudioData,channelArray);
 
-	//write audio
-	audioDataToBin("audio.bin", &rawAudioData);
+    sampleAlloc(&sample[0]);
+    sampleAlloc(&sample[1]);
 
 	#ifdef PLAYAUDIO
 	//Port audio
-	if(rawAudioData.size!=0){
+	if(1){
 
 		PaError err = 0;
         err = Pa_Initialize();
@@ -117,21 +104,38 @@ int main( int argc, char *argv[] )  {
 		bufferTime.tv_nsec = (1000000000.0*(FRAMES_PER_BUFFER)/SAMPLE_RATE); //wait time in nanoseconds
 		uint16_t audioBufferBytes = PA_CHANNELS*FRAMES_PER_BUFFER*sizeof(uint8_t);
 
-		while (rawAudioData.size>=rawAudioData.position+audioBufferBytes) { 
+FILE *pFile2;
+pFile2 = fopen("audio2.bin", "w");
+uint32_t inc=0;
+		while (inc<32768*100/64) { 
+			inc++;
+			// Generate the wave 
+			generateTone(&sample[0], 255, "noise", &wargs0 );
+			generateTone(&sample[1], 255, "noise", &wargs0 );
+			//sampleCopy(&sample[1],&sample[0]);
 
-			//TODO: generate audio during buffer wait
+			// Initialize and allocate audio data for each channel
+			for (size_t i = 0; i < SAMPLE_CHANNELS+1; i++) {
+				channelArray[i] = &sample[i];  // Store the address of each sample in channelArray
+			}
+			
+			interleaveChannels(&rawAudioData,channelArray);
+			
+			fwrite(rawAudioData.data, sizeof(uint8_t), rawAudioData.size, pFile2);
 
 			//copy to buffer
-   			memcpy(PAudioData, rawAudioData.data+rawAudioData.position, audioBufferBytes);
-			rawAudioData.position+=audioBufferBytes;
+   			memcpy(PAudioData, rawAudioData.data, audioBufferBytes);
 
 			//wait, bufferTime - [elapsed time]
 			clock_gettime( 1, &timend ); //CLOCK_MONOTONIC
 			waitTime.tv_nsec=(bufferTime.tv_nsec - ( timend.tv_nsec - timest.tv_nsec ));
+#define WRITE_ONLY 1
+#if WRITE_ONLY==0
 			nanosleep( NULL, &waitTime ); 
-			
+
 			//pass to port audio
 			Pa_WriteStream(stream, PAudioData, FRAMES_PER_BUFFER);
+#endif			
 			clock_gettime( 1, &timest);
 			
 		}

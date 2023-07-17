@@ -121,7 +121,7 @@ static inline uint8_t ukaelRWalk(WaveArg *arg) {
 	
 	uint16_t time16 = KAENTROPY.a;
 
-	uint8_t sign = time16&1; //add=0 subtract=1
+	uint8_t sign = (time16>>5)&1; //add=0 subtract=1
 
 	uint8_t prevSample = arg->u16arg[0];
 	uint8_t random = time16;

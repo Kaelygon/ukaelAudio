@@ -35,25 +35,39 @@ typedef struct {
     uint8_t s;
 } ukaelEntropy;
 
+
 //white noise generator
 //lcg with rolling mults and adds
+#define KAENTROPY_LONGER 0 //overkill for waveforms,
 ukaelEntropy KAENTROPY = {.a = 13381U, .b = 42513U, .s = 0U};
 inline static void reseed(){
 II=0; //DEBUG 
-	static const uint8_t mul[] = {13,17,23};
-	static const uint8_t add[] = { 7,11,19};
+	static const uint8_t mul[] = {13,17,11, 7,23, 3,29,21};
+	static const uint8_t add[] = {17,19,23,31,13,27, 3, 7};
 
-    KAENTROPY.a = KAENTROPY.a * mul[KAENTROPY.s] + add[KAENTROPY.s];
-    KAENTROPY.b = KAENTROPY.b * mul[KAENTROPY.s] + add[KAENTROPY.s];
-    KAENTROPY.a = KAENTROPY.a + KAENTROPY.b;
-				   
+		KAENTROPY.a = KAENTROPY.a * mul[KAENTROPY.s] + add[KAENTROPY.s];
+		KAENTROPY.b = KAENTROPY.b * mul[KAENTROPY.s] + add[KAENTROPY.s];
+		KAENTROPY.a = KAENTROPY.a + KAENTROPY.b;
+
+#if KAENTROPY_LONGER==1 
+    KAENTROPY.a ^= KAENTROPY.a << 7;
+    KAENTROPY.a ^= KAENTROPY.a >> 9;
+#endif
+
 	if( KAENTROPY.b&0b0010001011100000U ){return;} //shift mult add array
+
 		KAENTROPY.s++;
-		if(KAENTROPY.s==3){KAENTROPY.s=0;}
+		if(KAENTROPY.s==8){KAENTROPY.s=0;}
+
+INC[II]++;
+II+=II<9?1:0;
 
     if( KAENTROPY.b&(KAENTROPY.a>>8) ){return;} 
 		KAENTROPY.s++;
-		if(KAENTROPY.s==3){KAENTROPY.s=0;}
+		if(KAENTROPY.s==8){KAENTROPY.s=0;}
+
+INC[II]++;
+II+=II<9?1:0;
 
     return;
 }
