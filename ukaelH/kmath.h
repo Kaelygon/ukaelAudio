@@ -45,7 +45,7 @@ II=0; //DEBUG
 
     KAENTROPY.a = KAENTROPY.a * mul[KAENTROPY.s] + add[KAENTROPY.s];
     KAENTROPY.b = KAENTROPY.b * mul[KAENTROPY.s] + add[KAENTROPY.s];
-    KAENTROPY.a = rand();
+    KAENTROPY.a = KAENTROPY.a + KAENTROPY.b;
 				   
 	if( KAENTROPY.b&0b0010001011100000U ){return;} //shift mult add array
 		KAENTROPY.s++;
