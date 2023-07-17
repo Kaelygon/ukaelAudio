@@ -11,7 +11,7 @@
 #include "ukaelWaveC.h"
 
 // Callback function that is called by PortAudio to fill the output buffer
-static int audioCallback(
+static uint16_t audioCallback(
 	const void* inputBuffer, 
 	void* outputBuffer,
 	unsigned long framesPerBuffer,
@@ -120,15 +120,17 @@ static const void generateTone(
 	// Generate
 	uint16_t value;
 
+	uint16_t startTime = wargs->time;
+
 	for (uint16_t i = 0; i < samples->size; ++i) {
-		wargs->time = i; //copy time
-		
 		//pass arguments and generate sample
 		value = waveFunc(wargs); 
 
-		value =  ((value * amplitude)>>8) ;
+		value =  ((value * amplitude)>>8) ; //much faster than divide by 255, but off by 1
 		value += ((UINT8_MAX - amplitude)>>1); // Amplitude
 		samples->data[i] = value; //copy to pointer
+
+		wargs->time = i+startTime; //copy time
 	}
 
 	return;
