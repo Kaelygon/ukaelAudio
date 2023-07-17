@@ -111,7 +111,7 @@ uint32_t inc=0;
 			inc++;
 			// Generate the wave 
 			generateTone(&sample[0], 255, "noise", &wargs0 );
-			generateTone(&sample[1], 255, "noise", &wargs0 );
+			generateTone(&sample[1], 255, "noise", &wargs1 );
 			//sampleCopy(&sample[1],&sample[0]);
 
 			// Initialize and allocate audio data for each channel
