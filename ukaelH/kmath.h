@@ -38,10 +38,9 @@ typedef struct {
 
 //white noise generator
 //lcg with rolling mults and adds
-#define KAENTROPY_LONGER 0 //overkill for waveforms,
+#define KAENTROPY_LONGER 0 //overkill for waveforms
 ukaelEntropy KAENTROPY = {.a = 13381U, .b = 42513U, .s = 0U};
 inline static void reseed(){
-II=0; //DEBUG 
 	static const uint8_t mul[] = {13,17,11, 7,23, 3,29,21};
 	static const uint8_t add[] = {17,19,23,31,13,27, 3, 7};
 
@@ -59,15 +58,9 @@ II=0; //DEBUG
 		KAENTROPY.s++;
 		if(KAENTROPY.s==8){KAENTROPY.s=0;}
 
-INC[II]++;
-II+=II<9?1:0;
-
     if( KAENTROPY.b&(KAENTROPY.a>>8) ){return;} 
 		KAENTROPY.s++;
 		if(KAENTROPY.s==8){KAENTROPY.s=0;}
-
-INC[II]++;
-II+=II<9?1:0;
 
     return;
 }
