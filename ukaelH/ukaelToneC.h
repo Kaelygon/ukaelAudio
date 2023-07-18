@@ -84,11 +84,11 @@ static const WaveMap waveList[] = {
 	{"square", 		ukaelSquare		},
 	{"noise",	 	ukaelNoise		},
 	{"rwalk", 		ukaelRWalk		},
-	{"filtri", 		ukaelFiltri		},
 	{"pulse", 		ukaelPulse		},
 	{"csine", 		ukaelCSine		},
 //	{"lsine", 		ukaelSineL		},
 //	{"sinef", 		ukaelSinef		},
+	{"bnoise", 		ukaelBadNoise		},
 	{"testing", 	ukaelTesting	} 
 };
 

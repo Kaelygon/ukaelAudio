@@ -1,3 +1,5 @@
+./untracked
+./randomTest.c
 # Prerequisites
 *.d
 
