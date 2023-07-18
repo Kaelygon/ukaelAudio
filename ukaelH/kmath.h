@@ -9,13 +9,13 @@ static uint64_t rdtsc(){
 	return ((uint64_t)hi << 32) | lo;
 }
 
-
+/*
 static uint16_t rdrand(){
 		uint16_t rnum;
 		__asm__ __volatile__ ("rdrand %0"  : "=r" (rnum));
-    return rnum;
+	return rnum;
 }
-
+*/
 
 //Fast filtering condition
 //if( [0 to 2^k] & [num with n 1s] ) 
@@ -27,99 +27,107 @@ static uint16_t rdrand(){
 //if(val&(val>>n))
 
 typedef struct {
-    uint16_t a;
-    uint16_t b;
-    uint8_t s;
+	uint16_t a;
+	uint16_t b;
+	uint8_t s;
 } ukaelEntropy;
+
+ukaelEntropy UKAEL_LCG = {.a = 13381U, .b = 42533U, .s = 0U};
+static const uint8_t UKAEL_MUL[] = {13,17,23, 7,13,19, 3,11};
+static const uint8_t UKAEL_ADD[] = {17,19,31,11,23,27,29,21};
 
 //white noise generator
 //lcg with rolling mults and adds
-//#define KAENTROPY_LONGER 1 
-//KAENTROPY_LONGER is 38% slower but but better dieharder results
-//without KAENTROPY_LONGER dieharder result are weaker, but this is still plenty random by ear
-ukaelEntropy KAENTROPY = {.a = 13381U, .b = 42533U, .s = 0U};
+//1.8 times faster than rand()
 inline static void ukaelReseed(){
-	static const uint8_t mul[] = {13,17,11, 7,23, 3,29,21};
-	static const uint8_t add[] = {17,19,23,31,13,27, 3, 7};
 
-		KAENTROPY.a = KAENTROPY.a * mul[KAENTROPY.s] + add[KAENTROPY.s];
-		KAENTROPY.b = KAENTROPY.b * mul[KAENTROPY.s] + add[KAENTROPY.s];
-		KAENTROPY.a = KAENTROPY.a + KAENTROPY.b;
+		UKAEL_LCG.a = UKAEL_LCG.a * UKAEL_MUL[UKAEL_LCG.s] + UKAEL_ADD[UKAEL_LCG.s];
+		UKAEL_LCG.b = UKAEL_LCG.b * UKAEL_MUL[UKAEL_LCG.s] + UKAEL_ADD[UKAEL_LCG.s];
+		UKAEL_LCG.a = UKAEL_LCG.a + UKAEL_LCG.b;
 
-#if KAENTROPY_LONGER==1 
-    KAENTROPY.a ^= KAENTROPY.a << 7;
-    KAENTROPY.a ^= KAENTROPY.a >> 9;
-#endif
+	if( UKAEL_LCG.a&0b0011000101010000U ){return;} //random comparison to pass some values
+		UKAEL_LCG.s++; //shift mult, add arrays
+		if(UKAEL_LCG.s==8){UKAEL_LCG.s=0;}
 
-	if( KAENTROPY.b&0b0011000101000100U ){return;} //shift mult add array
-		KAENTROPY.s++;
-		if(KAENTROPY.s==8){KAENTROPY.s=0;}
+	if( UKAEL_LCG.b&(UKAEL_LCG.a>>8) ){return;} 
+		UKAEL_LCG.s++;
+		if(UKAEL_LCG.s==8){UKAEL_LCG.s=0;}
 
-    if( KAENTROPY.b&(KAENTROPY.a>>8) ){return;} 
-		KAENTROPY.s++;
-		if(KAENTROPY.s==8){KAENTROPY.s=0;}
+	return;
+}
 
-    return;
+#include <time.h>
+//Seed from rdtsc.
+//1.5 times slower than rand()
+//2.7 times slower than ukaelReseed
+inline static void ukaelRdtscSeed(){
+
+	uint16_t buf=time(NULL);
+	//finer but twice as slow as time(null), more performant than clock()
+	__asm__ __volatile__ ("rdtsc" : "=a" (buf));
+
+	uint8_t shift = buf&15;
+
+	UKAEL_LCG.a = (UKAEL_LCG.a>>(shift))|(UKAEL_LCG.a<<(16-shift));
+	UKAEL_LCG.b ^= UKAEL_LCG.a;
+		
+	UKAEL_LCG.s++;
+	if(UKAEL_LCG.s==8){UKAEL_LCG.s=0;}
+
+	UKAEL_LCG.a = UKAEL_LCG.a * UKAEL_MUL[UKAEL_LCG.s] + UKAEL_ADD[UKAEL_LCG.s];
+	UKAEL_LCG.b = UKAEL_LCG.b * UKAEL_MUL[UKAEL_LCG.s] + UKAEL_ADD[UKAEL_LCG.s];
+	UKAEL_LCG.a = UKAEL_LCG.a + UKAEL_LCG.b;
+
+	return;
 }
 
 //bad testing example for comparison. 
 //-42 to -48db variance, ~0.5s loop
 inline static void ukaelBadReseed(){
+//poor
 
 	uint16_t anum,bnum;
 
-	anum=((KAENTROPY.a>>((KAENTROPY.a&7)+3))&255)|1;
-	bnum=((KAENTROPY.b>>((KAENTROPY.b&7)+7))&127)|1;
+	anum=((UKAEL_LCG.a>>((UKAEL_LCG.a&7)+3))&511)|1;
+	bnum=((UKAEL_LCG.b>>((UKAEL_LCG.b&7)+7))&127)|1;
 
-	KAENTROPY.a = KAENTROPY.a * anum + bnum;
-	KAENTROPY.b = KAENTROPY.b * anum + bnum;
-	KAENTROPY.a = KAENTROPY.a + KAENTROPY.b;
-    return;
-}
+	UKAEL_LCG.a = UKAEL_LCG.a * anum + bnum;
+	UKAEL_LCG.b = UKAEL_LCG.b * anum + bnum;
+	UKAEL_LCG.a = UKAEL_LCG.a + UKAEL_LCG.b;
 
-//Seed from rdtsc.
-//3.6 times slower than ukaelReseed. Passes all dieharder preset tests
-inline static void ukaelRdtscSeed(){
-	uint16_t anum,bnum;
 
-	__asm__ __volatile__ ("rdtsc" : "=a" (KAENTROPY.a));
-	anum=((KAENTROPY.a>>((KAENTROPY.a&7)+3))&255)|1; //odd 1 to 511
-	bnum=((KAENTROPY.b>>((KAENTROPY.b&7)+7))&255)|1;
-	
-    KAENTROPY.a ^= (KAENTROPY.a) << 7;
-    KAENTROPY.a ^= (KAENTROPY.a) >> 9;
+/*
+//real bad
+	UKAEL_LCG.a = UKAEL_LCG.a * 7 + 3;
+	UKAEL_LCG.b = UKAEL_LCG.b * 7 + 3;
+	UKAEL_LCG.a = UKAEL_LCG.a + UKAEL_LCG.b;
+*/
+/*
+//linear
+	UKAEL_LCG.a++;
+*/
 
-	if(bnum>anum){ //better results with bigger multiplier
-		uint16_t buf = anum;
-		anum=bnum;
-		bnum=buf;
-	}
-
-	KAENTROPY.a = KAENTROPY.a * anum + bnum;
-	KAENTROPY.b = KAENTROPY.b * anum + bnum;
-	KAENTROPY.a = KAENTROPY.a + KAENTROPY.b;
-
-    return;
+	return;
 }
 
 
 inline static void ukaelSetSeed(uint16_t seeda, uint16_t seedb){
-	KAENTROPY.a = seeda;
-	KAENTROPY.b = seedb;
+	UKAEL_LCG.a = seeda;
+	UKAEL_LCG.b = seedb;
 }
 
 
 inline static uint16_t ukaelRand(){
 	ukaelReseed();
-	return KAENTROPY.a;
+	return UKAEL_LCG.a;
 }
 
 inline static uint16_t ukaelRandb(){
 	ukaelReseed();
-	return KAENTROPY.b;
+	return UKAEL_LCG.b;
 }
 
 inline static uint32_t u32kaelRand(){
 	ukaelReseed();
-	return ((uint32_t)KAENTROPY.a<<16)|KAENTROPY.b;
+	return ((uint32_t)UKAEL_LCG.b<<16)|UKAEL_LCG.a;
 }

@@ -7,7 +7,7 @@
 #include "../ukaelH/ukaelToneC.h"
 
 
-
+#define UKAEL_LCG_LONGER 0
 //#define CYCLES_PER_SECOND (3698778634.42102954886)
 #define CYCLES_PER_SECOND (3700000000) //3.7ghz
 #define SAMPLE_COUNT (1<<14)
@@ -51,8 +51,8 @@ int main(){
 		cyclesDelta = rdtsc()-cyclesst;
 		timeDelta = (clock()-timest)/1000000.0f;
 
-	uint16_t r1 = KAENTROPY.b;
-	uint16_t r0 = KAENTROPY.a;
+	uint16_t r1 = UKAEL_LCG.b;
+	uint16_t r0 = UKAEL_LCG.a;
 
 		printf("%s\n",(const char*)testKey);
 		printf("Cycles %lu\n",cyclesDelta);
@@ -67,7 +67,6 @@ int main(){
 		}
 
 		sample.data=memset(sample.data,128,sample.size*sizeof(uint8_t)); //clear to prevent caching
-//		ENTROPY=rdrand();
 	}
 
 	

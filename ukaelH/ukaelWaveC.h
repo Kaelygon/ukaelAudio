@@ -82,7 +82,7 @@ static inline uint8_t ukaelNoise(WaveArg *arg) {
 //bad noise for testing
 static inline uint8_t ukaelBadNoise(WaveArg *arg) {
 	ukaelBadReseed();
-	return KAENTROPY.a;
+	return UKAEL_LCG.a;
 }
 
 
@@ -90,10 +90,11 @@ static inline uint8_t ukaelBadNoise(WaveArg *arg) {
 static inline uint8_t ukaelRWalk(WaveArg *arg) {
 	
 	uint16_t time16 = ukaelRand();
+	
+	uint8_t prevSample = arg->u16arg[0];
 
 	uint8_t sign = (time16>>5)&1; //add=0 subtract=1
 
-	uint8_t prevSample = arg->u16arg[0];
 	uint8_t random = time16;
 	random=(uint16_t)random*arg->freq.a/arg->freq.b; //frequency
 	random= sign ? prevSample-random : prevSample+random; //add or subtract random

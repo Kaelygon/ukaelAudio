@@ -28,7 +28,7 @@ int main( int argc, char *argv[] )  {
 		.freq = 	(Frac){1,64},
 		.u8arg = 	{128,0,0,0},
 		.u16arg = 	{129,0,0,0}
-	};
+	}; 
 	
 	//allocate
 	sample[0] = (AudioData){
@@ -106,12 +106,13 @@ int main( int argc, char *argv[] )  {
 FILE *pFile2;
 pFile2 = fopen("audio2.bin", "w");
 uint32_t inc=0;
-		while (inc<32768*10/64) { 
+		while (inc<32768*10/FRAMES_PER_BUFFER) { 
 			inc++;
 			// Generate the wave 
-			generateTone(&sample[0], 255, "noise", &wargs0 );
-			generateTone(&sample[1], 255, "noise", &wargs1 );
-//			sampleCopy(&sample[1],&sample[0]);
+			generateTone(&sample[0], 255, "rwalk", &wargs0 );
+			generateTone(&sample[1], 255, "rwalk", &wargs1 );
+
+			sampleCopy(&sample[1],&sample[0]);
 
 			// Initialize and allocate audio data for each channel
 			for (size_t i = 0; i < SAMPLE_CHANNELS+1; i++) {
@@ -128,7 +129,7 @@ uint32_t inc=0;
 			//wait, bufferTime - [elapsed time]
 			clock_gettime( 1, &timend ); //CLOCK_MONOTONIC
 			waitTime.tv_nsec=(bufferTime.tv_nsec - ( timend.tv_nsec - timest.tv_nsec ));
-#define WRITE_ONLY 1
+#define WRITE_ONLY 0
 #if WRITE_ONLY==0
 			nanosleep( NULL, &waitTime ); 
 
