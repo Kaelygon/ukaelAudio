@@ -9,17 +9,17 @@
 #include "../ukaelH/ukaelWaveC.h"
 #include "../ukaelH/ukaelToneC.h"
 
-#define PLAYAUDIO = 1;
+#define PLAYAUDIO 1
 
 int main( int argc, char *argv[] )  {
 	
-	ukaelRdtscSeed(); 
+	ukaelTimeSeed(); 
 
-	AudioData sample[SAMPLE_CHANNELS+1]; //+1 buffer channel to prevent seg fault 
+	AudioData sample[SAMPLE_CHANNELS+1]; //+1 buffer channel 
 
 	WaveArg wargs0 = {
 		.time = 	DEFAULT_AMPLITUDE,
-		.freq = 	(Frac){1,64},	//55,16 = 440hz at 32768hz
+		.freq = 	(Frac){55,16},	//55,16 = 440hz at 32768hz
 		.u8arg = 	{128,0,0,0},
 		.u16arg = 	{127,0,0,0}
 	};
@@ -43,20 +43,28 @@ int main( int argc, char *argv[] )  {
 		.position 	= 0,
 		.allocated  = 0
 	};
+	sample[2] = (AudioData){//buffer, otherwise valgrind will give error at interleaveChannels
+		.data 		= NULL,
+		.size 		= 0,
+		.position 	= 0,
+		.allocated  = 0
+	};
 	
 
   	//create pointer to AudioData sample[]
 	AudioData* channelArray[SAMPLE_CHANNELS+1];
 
-	AudioData rawAudioData;
-	rawAudioData.allocated=0;
-	rawAudioData.size=0;
-	rawAudioData.position=0;
+	AudioData rawAudioData = (AudioData){
+		.data 		= NULL,
+		.size 		= FRAMES_PER_BUFFER,
+		.position 	= 0,
+		.allocated  = 0
+	};
 
     sampleAlloc(&sample[0]);
     sampleAlloc(&sample[1]);
 
-	#ifdef PLAYAUDIO
+	#if PLAYAUDIO==1
 	//Port audio
 	if(1){
 
@@ -103,16 +111,16 @@ int main( int argc, char *argv[] )  {
 		bufferTime.tv_nsec = (1000000000.0*(FRAMES_PER_BUFFER)/SAMPLE_RATE); //wait time in nanoseconds
 		uint16_t audioBufferBytes = PA_CHANNELS*FRAMES_PER_BUFFER*sizeof(uint8_t);
 
-FILE *pFile2;
-pFile2 = fopen("audio2.bin", "w");
-uint32_t inc=0;
-		while (inc<32768*10/FRAMES_PER_BUFFER) { 
+		FILE *pFile2;
+		pFile2 = fopen("audio2.bin", "w");
+		uint32_t inc=0;
+		while (inc<32768/FRAMES_PER_BUFFER) { 
 			inc++;
 			// Generate the wave 
-			generateTone(&sample[0], 255, "rwalk", &wargs0 );
-			generateTone(&sample[1], 255, "rwalk", &wargs1 );
+			generateTone(&sample[0], 32, "sine", &wargs0 );
+			generateTone(&sample[1], 128, "rwalk", &wargs1 );
 
-			sampleCopy(&sample[1],&sample[0]);
+//			sampleCopy(&sample[1],&sample[0]);
 
 			// Initialize and allocate audio data for each channel
 			for (size_t i = 0; i < SAMPLE_CHANNELS+1; i++) {
@@ -129,16 +137,20 @@ uint32_t inc=0;
 			//wait, bufferTime - [elapsed time]
 			clock_gettime( 1, &timend ); //CLOCK_MONOTONIC
 			waitTime.tv_nsec=(bufferTime.tv_nsec - ( timend.tv_nsec - timest.tv_nsec ));
-#define WRITE_ONLY 0
-#if WRITE_ONLY==0
-			nanosleep( NULL, &waitTime ); 
+			#define WRITE_ONLY 0
+			#if WRITE_ONLY==0
+						nanosleep( NULL, &waitTime ); 
 
-			//pass to port audio
-			Pa_WriteStream(stream, PAudioData, FRAMES_PER_BUFFER);
-#endif			
+						//pass to port audio
+						Pa_WriteStream(stream, PAudioData, FRAMES_PER_BUFFER);
+			#endif			
 			clock_gettime( 1, &timest);
 			
 		}
+		free(PAudioData);
+		PAudioData=NULL;
+		fclose(pFile2);
+		pFile2=NULL;
 
         // Stop and close the stream
         err = Pa_StopStream(stream);
@@ -149,19 +161,17 @@ uint32_t inc=0;
         if (err != paNoError) {
             printf("Failed to close stream:%s\n", Pa_GetErrorText(err));
         }
+		stream=NULL;
 
 		Pa_Terminate();
-		free(PAudioData);
-
 	}
 	rawAudioData.position = 0;
 	#endif
 
 	sampleFree(&rawAudioData);
-	for(uint8_t i=0;i<SAMPLE_CHANNELS;i++){
+	for(uint8_t i=0;i<SAMPLE_CHANNELS+1;i++){
 		sampleFree(&sample[i]);
 	}
 	
-	
-return 0;
+	return 0;
 }

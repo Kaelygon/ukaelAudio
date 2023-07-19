@@ -65,6 +65,7 @@ static void audioDataToBin(const char* filename, AudioData* rawData) {
 
 	// Close the file
 	uint8_t closeResult = fclose(file);
+	file=NULL;
 	if (closeResult != 0) {
 		printf("audioDataToBin() : Failed to close the file.\n");
 	}
@@ -86,9 +87,6 @@ static const WaveMap waveList[] = {
 	{"rwalk", 		ukaelRWalk		},
 	{"pulse", 		ukaelPulse		},
 	{"csine", 		ukaelCSine		},
-//	{"lsine", 		ukaelSineL		},
-//	{"sinef", 		ukaelSinef		},
-	{"bnoise", 		ukaelBadNoise		},
 	{"testing", 	ukaelTesting	} 
 };
 
@@ -126,7 +124,7 @@ static const void generateTone(
 		//pass arguments and generate sample
 		value = waveFunc(wargs); 
 
-		value =  ((value * amplitude)>>8) ; //much faster than divide by 255, but off by 1
+		value =  ((value * amplitude)/255) ; // div 255 being slow may have been bug previously
 		value += ((UINT8_MAX - amplitude)>>1); // Amplitude
 		samples->data[i] = value; //copy to pointer
 
@@ -170,6 +168,9 @@ static void sampleFree(AudioData* destin) {
 		return;
 	}
     free((void*)destin->data);
+	destin->size=0;
+	destin->data=NULL;
+	destin=NULL;
 }
 
 //mixing

@@ -12,7 +12,7 @@
 #define PLAYAUDIO = 1;
 
 int main( int argc, char *argv[] )  {
-	__asm__ __volatile__ ("rdtsc" : "=a" (KAENTROPY.a));
+	ukaelTimeSeed();
 
 	AudioData sample[SAMPLE_CHANNELS+1]; //+1 buffer channel to prevent seg fault 
 //55,16 = 440hz at 32768hz
@@ -25,7 +25,7 @@ int main( int argc, char *argv[] )  {
 
 	WaveArg wargs1 = {
 		.time = 	DEFAULT_AMPLITUDE,
-		.freq = 	(Frac){1,64},
+		.freq = 	(Frac){55,16},
 		.u8arg = 	{0,0,0,0},
 		.u16arg = 	{129,0,0,0}
 	};
@@ -48,7 +48,7 @@ int main( int argc, char *argv[] )  {
 
     // Generate the wave
 	generateTone(&sample[0], 255, "rwalk", &wargs0 ); 	//write random walk to sample[1] at amplitude 255
-	generateTone(&sample[1], 255, "rwalk", &wargs1 );
+	generateTone(&sample[1], 32, "sine", &wargs1 );
 
 	//TODO: mixing, time tables, midi-like setup, and other functions
 

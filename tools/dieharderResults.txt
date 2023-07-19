@@ -1,73 +1,73 @@
 DO NOTE that these are on purpose biased in favor of ukaelRdtscSeed() 
 as that is the quality ukaelReseed() tries to approximate
 
-rand() failed 11
+rand() failed 11, acceptable for waveforms
 [campus@kaelygon ukaelWaveform]$ sh './tools/dieRand.sh' 0 | grep "FAIL\|WEAK\|PASS"
-      diehard_operm5|   0|     81920|     100|0.41678193|  PASSED  
+      diehard_operm5|   0|     81920|     100|0.68192058|  PASSED  
   diehard_rank_32x32|   0|     16384|     100|0.00000000|  FAILED  
     diehard_3dsphere|   3|     81920|     100|0.00000000|  FAILED  
-        diehard_runs|   0|     81920|     100|0.93759148|  PASSED  
-        diehard_runs|   0|     81920|     100|0.74219442|  PASSED  
+        diehard_runs|   0|     81920|     100|0.52023767|  PASSED  
+        diehard_runs|   0|     81920|     100|0.67409186|  PASSED  
        diehard_craps|   0|     81920|     100|0.00000000|  FAILED  
        diehard_craps|   0|     81920|     100|0.00000000|  FAILED  
          sts_monobit|   1|     81920|     100|0.00000000|  FAILED  
             sts_runs|   2|     81920|     100|0.00000000|  FAILED  
           sts_serial|   8|     81920|     100|0.00000000|  FAILED  
-          sts_serial|   8|     81920|     100|0.17631349|  PASSED  
+          sts_serial|   8|     81920|     100|0.28062571|  PASSED  
           sts_serial|  16|     81920|     100|0.00000000|  FAILED  
-          sts_serial|  16|     81920|     100|0.03312376|  PASSED  
-    rgb_permutations|   4|     81920|     100|0.42690059|  PASSED  
+          sts_serial|  16|     81920|     100|0.67108967|  PASSED  
+    rgb_permutations|   4|     81920|     100|0.65306202|  PASSED  
       rgb_lagged_sum|   0|     81920|     100|0.00000000|  FAILED  
      rgb_kstest_test|   0|     81920|     100|0.00000000|  FAILED  
      dab_bytedistrib|   0|     81920|     100|0.00000000|  FAILED  
-        dab_filltree|  32|     81920|     100|0.59324443|  PASSED  
-        dab_filltree|  32|     81920|     100|0.14118795|  PASSED 
+        dab_filltree|  32|     81920|     100|0.99808642|   WEAK   
+        dab_filltree|  32|     81920|     100|0.30283743|  PASSED
 
-ukaelReseed() failed 10
+ukaelReseed() failed 6, acceptable for waveforms
 [campus@kaelygon ukaelWaveform]$ sh './tools/dieRand.sh' 1 | grep "FAIL\|WEAK\|PASS"
-      diehard_operm5|   0|     81920|     100|0.00000000|  FAILED  
+      diehard_operm5|   0|     81920|     100|0.93829422|  PASSED  
   diehard_rank_32x32|   0|     16384|     100|0.00000000|  FAILED  
     diehard_3dsphere|   3|     81920|     100|0.00000000|  FAILED  
-        diehard_runs|   0|     81920|     100|0.00000000|  FAILED  
-        diehard_runs|   0|     81920|     100|0.00000000|  FAILED  
-       diehard_craps|   0|     81920|     100|0.00000000|  FAILED  
-       diehard_craps|   0|     81920|     100|0.00000000|  FAILED  
-         sts_monobit|   1|     81920|     100|0.12557860|  PASSED  
-            sts_runs|   2|     81920|     100|0.02160490|  PASSED  
-          sts_serial|   8|     81920|     100|0.31169414|  PASSED  
-          sts_serial|   8|     81920|     100|0.89716646|  PASSED  
-          sts_serial|  16|     81920|     100|0.77204480|  PASSED  
-          sts_serial|  16|     81920|     100|0.87865734|  PASSED  
-    rgb_permutations|   4|     81920|     100|0.00000000|  FAILED  
-      rgb_lagged_sum|   0|     81920|     100|0.26002299|  PASSED  
-     rgb_kstest_test|   0|     81920|     100|0.89403179|  PASSED  
-     dab_bytedistrib|   0|     81920|     100|0.15079654|  PASSED  
-        dab_filltree|  32|     81920|     100|0.00000000|  FAILED  
-        dab_filltree|  32|     81920|     100|0.00000000|  FAILED  
+        diehard_runs|   0|     81920|     100|0.76925040|  PASSED  
+        diehard_runs|   0|     81920|     100|0.30516696|  PASSED  
+       diehard_craps|   0|     81920|     100|0.10692157|  PASSED  
+       diehard_craps|   0|     81920|     100|0.49919939|  PASSED  
+         sts_monobit|   1|     81920|     100|0.65553432|  PASSED  
+            sts_runs|   2|     81920|     100|0.00000000|  FAILED  
+          sts_serial|   8|     81920|     100|0.00000000|  FAILED  
+          sts_serial|   8|     81920|     100|0.54189768|  PASSED  
+          sts_serial|  16|     81920|     100|0.00000000|  FAILED  
+          sts_serial|  16|     81920|     100|0.81961175|  PASSED  
+    rgb_permutations|   4|     81920|     100|0.25747706|  PASSED  
+      rgb_lagged_sum|   0|     81920|     100|0.08337736|  PASSED  
+     rgb_kstest_test|   0|     81920|     100|0.42775305|  PASSED  
+     dab_bytedistrib|   0|     81920|     100|0.00000000|  FAILED  
+        dab_filltree|  32|     81920|     100|0.62009662|  PASSED  
+        dab_filltree|  32|     81920|     100|0.91475358|  PASSED 
 
-ukaelRdtscSeed() 1 weak
+ukaelTimeSeed() all pass in 3 tests, overkill for audio
 [campus@kaelygon ukaelWaveform]$ sh './tools/dieRand.sh' 2 | grep "FAIL\|WEAK\|PASS"
-      diehard_operm5|   0|     81920|     100|0.44478706|  PASSED  
-  diehard_rank_32x32|   0|     16384|     100|0.73926534|  PASSED  
-    diehard_3dsphere|   3|     81920|     100|0.59246320|  PASSED  
-        diehard_runs|   0|     81920|     100|0.08014052|  PASSED  
-        diehard_runs|   0|     81920|     100|0.00070387|   WEAK   
-       diehard_craps|   0|     81920|     100|0.28714680|  PASSED  
-       diehard_craps|   0|     81920|     100|0.87777132|  PASSED  	
-         sts_monobit|   1|     81920|     100|0.68329936|  PASSED  
-            sts_runs|   2|     81920|     100|0.99207271|  PASSED  
-          sts_serial|   8|     81920|     100|0.28242124|  PASSED  
-          sts_serial|   8|     81920|     100|0.72363967|  PASSED  
-          sts_serial|  16|     81920|     100|0.49999135|  PASSED  
-          sts_serial|  16|     81920|     100|0.99421438|  PASSED  
-    rgb_permutations|   4|     81920|     100|0.46682087|  PASSED  
-      rgb_lagged_sum|   0|     81920|     100|0.25569185|  PASSED  
-     rgb_kstest_test|   0|     81920|     100|0.34312720|  PASSED  
-     dab_bytedistrib|   0|     81920|     100|0.81183309|  PASSED  
-        dab_filltree|  32|     81920|     100|0.13229368|  PASSED  
-        dab_filltree|  32|     81920|     100|0.28238388|  PASSED 
+      diehard_operm5|   0|     81920|     100|0.95929800|  PASSED  
+  diehard_rank_32x32|   0|     16384|     100|0.40704438|  PASSED  
+    diehard_3dsphere|   3|     81920|     100|0.69035246|  PASSED  
+        diehard_runs|   0|     81920|     100|0.35833927|  PASSED  
+        diehard_runs|   0|     81920|     100|0.87880373|  PASSED  
+       diehard_craps|   0|     81920|     100|0.59228914|  PASSED  
+       diehard_craps|   0|     81920|     100|0.96856310|  PASSED  
+         sts_monobit|   1|     81920|     100|0.03152384|  PASSED  
+            sts_runs|   2|     81920|     100|0.12857854|  PASSED  
+          sts_serial|   8|     81920|     100|0.76400547|  PASSED  
+          sts_serial|   8|     81920|     100|0.27221980|  PASSED  
+          sts_serial|  16|     81920|     100|0.72798185|  PASSED  
+          sts_serial|  16|     81920|     100|0.29504673|  PASSED  
+    rgb_permutations|   4|     81920|     100|0.35593126|  PASSED  
+      rgb_lagged_sum|   0|     81920|     100|0.09453086|  PASSED  
+     rgb_kstest_test|   0|     81920|     100|0.10251944|  PASSED  
+     dab_bytedistrib|   0|     81920|     100|0.36745666|  PASSED  
+        dab_filltree|  32|     81920|     100|0.45876826|  PASSED  
+        dab_filltree|  32|     81920|     100|0.89493837|  PASSED
 
-/dev/urandom pass all
+/dev/urandom pass all, definitely overkill for audio
 [campus@kaelygon ukaelWaveform]$ sh './tools/dieRand.sh' 4 | grep "FAIL\|WEAK\|PASS"
       diehard_operm5|   0|     81920|     100|0.53826581|  PASSED  
   diehard_rank_32x32|   0|     16384|     100|0.37883272|  PASSED  

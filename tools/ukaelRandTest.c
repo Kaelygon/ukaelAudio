@@ -9,11 +9,12 @@
 #include <time.h>
 #include "../ukaelH/kmath.h"
 
-#define TEST_NO 2
+#define TEST_NO 1
 #define ELEMS ((uint32_t)1<<16)
 int main() {
 	srand(time(NULL));
-	ukaelRdtscSeed();
+	ukaelTimeSeed();
+	ukaelSetSeedTesting();
 
 	uint32_t list[ELEMS];
 	for(uint32_t i=0;i<ELEMS;i++){
@@ -23,21 +24,21 @@ int main() {
 		uint32_t repeats=1000;
 		uint32_t frequ=32768;
 		
-
+	//Preliminary testing for obvious patterns. By no means are these reliable random tests. 
 	//Finds two occurances of "segNum", and compares numbers at same position after segNum
-	uint32_t segNum = 1; //where the tested run segment starts
-	uint32_t const segLen=327680; //tested segment length after segNum
+	uint32_t segNum = 1; 			//where the tested run segment starts
+	uint32_t const segLen=327680; 	//tested segment length after segNum
 	int32_t pastSegNum[segLen];	//finds segNum and reads next values and compares them to next values after an other segNum
-	pastSegNum[segLen-1]=-1; //-1=not filled yet
-	uint32_t poinc=0; //past one array increment
-	int8_t isPastSegNum=0; //past segNum
-	uint32_t sameSegNum=0; //count of numbers with same position relative to segNum
-	uint32_t mostSameSegNum=0; //most nums with -||-
-	uint32_t idenSeg=0; //count of identical segments after segNum
-	uint32_t testedSeg=0; //count of tested segments past segNum
+	pastSegNum[segLen-1]=-1; 	//-1=not filled yet
+	uint32_t poinc=0; 			//past one array increment
+	int8_t isPastSegNum=0; 		//past segNum
+	uint32_t sameSegNum=0; 		//count of numbers with same position relative to segNum
+	uint32_t mostSameSegNum=0; 	//most nums with -||-
+	uint32_t idenSeg=0; 		//count of identical segments after segNum
+	uint32_t testedSeg=0; 		//count of tested segments past segNum
 
-	double percMean=0;	// percentage mean
-	double pdelta=0; //average delta from previous value
+	double percMean=0;	//percentage of mean variance
+	double pdelta=0; 	//average delta from previous value
 	uint32_t prev=ELEMS/2;
     for (uint32_t i = 0; i < frequ*repeats; i++) {
 		#if TEST_NO==0
@@ -47,23 +48,30 @@ int main() {
 			percMean+= (double)(buf)/(frequ*repeats)/(ELEMS-1);
 			prev=buf;
 		#elif TEST_NO==1
-			prev=UKAEL_LCG.a%ELEMS;
+			prev=UKAEL_STATE.a%ELEMS;
 			ukaelReseed();
-			uint32_t buf=((uint32_t)(UKAEL_LCG.b<<16)|UKAEL_LCG.a)%ELEMS;
+			uint32_t buf=((uint32_t)(UKAEL_STATE.b<<16)|UKAEL_STATE.a)%ELEMS;
 			list[buf]++;
 			percMean+= (double)(buf)/(frequ*repeats)/(ELEMS-1);
 			pdelta+=(double)abs(prev-buf)/(frequ*repeats);
 		#elif TEST_NO==2
-			prev=UKAEL_LCG.a%ELEMS;
-			ukaelRdtscSeed();
-			uint32_t buf=((uint32_t)(UKAEL_LCG.a<<16)|UKAEL_LCG.b)%ELEMS;
+			prev=UKAEL_STATE.a%ELEMS;
+			ukaelTimeSeed();
+			uint32_t buf=((uint32_t)(UKAEL_STATE.a<<16)|UKAEL_STATE.b)%ELEMS;
 			list[buf]++;
 			percMean+= (double)(buf)/(frequ*repeats)/(ELEMS-1);
 			pdelta+=(double)abs(prev-buf)/(frequ*repeats);
 		#elif TEST_NO==3
-			prev=UKAEL_LCG.a%ELEMS;
+			prev=UKAEL_STATE.a%ELEMS;
 			ukaelBadReseed();
-			uint32_t buf=((uint32_t)(UKAEL_LCG.b<<16)|UKAEL_LCG.a)%ELEMS;
+			uint32_t buf=((uint32_t)(UKAEL_STATE.b<<16)|UKAEL_STATE.a)%ELEMS;
+			list[buf]++;
+			percMean+= (double)(buf)/(frequ*repeats)/(ELEMS-1);
+			pdelta+=(double)abs(prev-buf)/(frequ*repeats);
+		#elif TEST_NO==4
+			prev=UKAEL_STA.a%ELEMS;
+			ukaelReseedTesting();
+			uint32_t buf=((uint32_t)(UKAEL_STA.b<<16)|UKAEL_STA.a)%ELEMS;
 			list[buf]++;
 			percMean+= (double)(buf)/(frequ*repeats)/(ELEMS-1);
 			pdelta+=(double)abs(prev-buf)/(frequ*repeats);
@@ -87,7 +95,7 @@ int main() {
 					if(sameSegNum>=mostSameSegNum){ //set most same nums found in segment
 						mostSameSegNum=sameSegNum;
 					}
-					if(sameSegNum>=segLen){ //identical segment count
+					if(sameSegNum>=segLen){//identical segment count
 						idenSeg++;
 					}
 					poinc=0;
@@ -100,7 +108,7 @@ int main() {
     }
 	
 	uint32_t noOccur=0; // count of numbers never occured
-	uint32_t most=0; // most times some number occured
+	uint32_t most=0; 	// most times some number occured
 	uint32_t least=UINT32_MAX;
 	uint32_t mostnum=0;	// the number that occured the most
 	uint32_t leastnum=0;

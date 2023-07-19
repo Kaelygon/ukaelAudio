@@ -9,10 +9,9 @@
 			"command": "/usr/bin/gcc",
 			"args": [
 				"-g",
-				"-lportaudio",	
-				"-Os",	
-				"-O3",
-//				"-fsanitize=address",	
+				"-lportaudio",	//valgrind reports some errors? Probably alsa
+//				"-Os",	
+//				"-O3",
 				"-Wall",
 				"-Wno-unused-function",
 				"${file}",

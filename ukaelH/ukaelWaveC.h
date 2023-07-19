@@ -79,13 +79,6 @@ static inline uint8_t ukaelNoise(WaveArg *arg) {
 }
 
 
-//bad noise for testing
-static inline uint8_t ukaelBadNoise(WaveArg *arg) {
-	ukaelBadReseed();
-	return UKAEL_LCG.a;
-}
-
-
 //random walk, slow
 static inline uint8_t ukaelRWalk(WaveArg *arg) {
 	
@@ -108,9 +101,10 @@ static inline uint8_t ukaelRWalk(WaveArg *arg) {
 	return random;
 }
 
+
+//playground
 static inline uint8_t ukaelTesting(WaveArg *arg) {
-    uint16_t time16 = arg->time;
-    
-    return time16;
+//    ukaelTimeSeed();
+    return u32kaelRandTesting();
 }
 

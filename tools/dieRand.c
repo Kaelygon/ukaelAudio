@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <time.h>
 
 #include "../ukaelH/kmath.h"
 #include "../ukaelH/ukaelToneC.h"
@@ -16,6 +17,7 @@ int main (int argc, char *argv[]){
 	//2 ukaelRdtscSeed
 	//3 ukaelBadReseed	
 	//4 /dev/urandom
+	//5 u32kaelRandTesting
 	volatile uint8_t TEST_NO = 0;
 
 	if(argv[1]){ 
@@ -29,8 +31,8 @@ int main (int argc, char *argv[]){
 	
 	fp = fopen("/dev/urandom", "r");
 		
-
-	ukaelRdtscSeed();
+	srand(time(NULL));
+	ukaelTimeSeed();
 	while(1){
 
 		if(TEST_NO==0){
@@ -40,16 +42,19 @@ int main (int argc, char *argv[]){
 			uint32_t buf = u32kaelRand();
 			fwrite(&buf, sizeof(buf), 1, stdout);
 		}else if(TEST_NO==2){
-			ukaelRdtscSeed();
-			uint32_t buf = (uint32_t)UKAEL_LCG.b<<16|UKAEL_LCG.a;
+			ukaelTimeSeed();
+			uint32_t buf = (uint32_t)UKAEL_STATE.b<<16|UKAEL_STATE.a;
 			fwrite(&buf, sizeof(buf), 1, stdout);
 		}else if(TEST_NO==3){
 			ukaelBadReseed();
-			uint32_t buf = (uint32_t)UKAEL_LCG.b<<16|UKAEL_LCG.a;
+			uint32_t buf = (uint32_t)UKAEL_STATE.b<<16|UKAEL_STATE.a;
 			fwrite(&buf, sizeof(buf), 1, stdout);
 		}else if(TEST_NO==4){
 			uint32_t buf;
 			fread((char*)(&buf),sizeof(buf),1,fp);
+			fwrite(&buf, sizeof(buf), 1, stdout);
+		}else if(TEST_NO==5){
+			uint32_t buf = u32kaelRandTesting();
 			fwrite(&buf, sizeof(buf), 1, stdout);
 		}
 
