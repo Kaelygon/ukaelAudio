@@ -22,7 +22,7 @@ int main(){
 		.u16arg = {128,128,128,128}
 	};
 
-	generateTone(&sample, 255, "sine", &args );
+	generateTone(&sample, 255, "noise", &args );
 	
 	for(int16_t i=0;i<SAMPLE_COUNT;i+=1){
 		printf("(%d,%d)",i,sample.data[i]);	//desmos

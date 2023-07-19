@@ -114,11 +114,11 @@ int main( int argc, char *argv[] )  {
 		FILE *pFile2;
 		pFile2 = fopen("audio2.bin", "w");
 		uint32_t inc=0;
-		while (inc<32768/FRAMES_PER_BUFFER) { 
+		while (inc<32768*10/FRAMES_PER_BUFFER) { 
 			inc++;
 			// Generate the wave 
-			generateTone(&sample[0], 32, "sine", &wargs0 );
-			generateTone(&sample[1], 128, "rwalk", &wargs1 );
+			generateTone(&sample[0], 255, "noise", &wargs0 );
+			generateTone(&sample[1], 255, "rwalk", &wargs1 );
 
 //			sampleCopy(&sample[1],&sample[0]);
 
@@ -137,7 +137,7 @@ int main( int argc, char *argv[] )  {
 			//wait, bufferTime - [elapsed time]
 			clock_gettime( 1, &timend ); //CLOCK_MONOTONIC
 			waitTime.tv_nsec=(bufferTime.tv_nsec - ( timend.tv_nsec - timest.tv_nsec ));
-			#define WRITE_ONLY 0
+			#define WRITE_ONLY 1
 			#if WRITE_ONLY==0
 						nanosleep( NULL, &waitTime ); 
 

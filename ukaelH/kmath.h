@@ -35,29 +35,29 @@ typedef struct {
 ukaelEntropy UKAEL_STATE = {.a = 13381U, .b = 42533U};
 
 //white noise generator
-//1.8 times faster than rand()
-//fails ~half of dieharder tests, but no audible patterns
+//2.5 times faster than rand()
+//passes most of dieharder tests, but no audible patterns
 //frequency analysis: <1db variance over 327680 samples
-inline static void ukaelReseed(){
-	UKAEL_STATE.a = (UKAEL_STATE.a>>11)|(UKAEL_STATE.a<<5); //shift and wrap msb to lsb
-	UKAEL_STATE.a^= (UKAEL_STATE.b<<1)+13;
-	UKAEL_STATE.b^= (UKAEL_STATE.a<<2)+11;
+inline static void ukaelReseed(){    
+	//asm ("rorw    $11, 	%[a]	\n\t" : [a] "+r" (UKAEL_STATE.a)    ); //about as fast
+	UKAEL_STATE.a = (UKAEL_STATE.a>>11)|(UKAEL_STATE.a<<5); //bit rotate rorw
+	UKAEL_STATE.a+= (UKAEL_STATE.b<<1)+13;	//adding is way better than xor
+	UKAEL_STATE.b+= (UKAEL_STATE.a<<2)+11;
 
 	return;
 }
 
 //Seed from time.h
-//1.3 times faster than rand()
-//1.4 times slower than ukaelReseed()
+//1.5 times faster than rand()
+//1.6 times slower than ukaelReseed()
 //passes most dieharder tests, 3 fails 3 weaks
 inline static void ukaelTimeSeed(){
 	UKAEL_STATE.a^=time(NULL);
 	
 	UKAEL_STATE.a = (UKAEL_STATE.a>>11)|(UKAEL_STATE.a<<5); //bit wrap
-	UKAEL_STATE.b^= UKAEL_STATE.a*73+31; 
-
-	UKAEL_STATE.b = (UKAEL_STATE.b>>11)|(UKAEL_STATE.b<<5);
-	UKAEL_STATE.a^= UKAEL_STATE.b*71+37;
+	UKAEL_STATE.a+= UKAEL_STATE.b*71+37;
+	UKAEL_STATE.b = (UKAEL_STATE.b>>11)|(UKAEL_STATE.b<<5); //bit wrap
+	UKAEL_STATE.b+= UKAEL_STATE.a*73+31; 
 	
 	return;
 }
@@ -102,27 +102,24 @@ inline static void ukaelBadReseed(){
 	return;
 }
 
-ukaelEntropy UKAEL_STA = {.a = 0, .b = 0};
 
-inline static void ukaelSetSeedTesting(){
-	UKAEL_STA.a^=time(NULL);
-	
-	UKAEL_STA.b = (UKAEL_STA.b>>9)|(UKAEL_STA.b<<7);
-	UKAEL_STA.a^= UKAEL_STA.b*71+37;
-	UKAEL_STA.b^= UKAEL_STA.a*73+31;
-}
+//assembly
+//most often slower on modern CPUs. Maybe faster on mcus limited to 16bit registry
+inline static void ukaelReseedASM() {
+	asm (
+		"rorw    $11, 	%[a]	\n\t"  // (a>>11)|(a<<5)
 
-//decent dieharder tests being this simple
-//1.3 times slower than ukaelReseed() due to multiplication
-inline static void ukaelReseedTesting(){
-	UKAEL_STA.b = (UKAEL_STA.b>>9)|(UKAEL_STA.b<<7);
-	UKAEL_STA.a^= UKAEL_STA.b*71+37;
-	UKAEL_STA.b^= UKAEL_STA.a*73+31;
+		"movw    %[b], 	%[tx]	\n\t"  // tx = b
+		"shlw    $1, 	%[tx]	\n\t"  // tx <<= 1
+		"addw    $13, 	%[tx]	\n\t"  // tx += 13
+		"addw    %[tx],	%[a]	\n\t"  // a  ^= tx
 
-	return;
-}
-
-inline static uint32_t u32kaelRandTesting(){
-	ukaelReseedTesting();
-	return ((uint32_t)UKAEL_STA.b<<16)|UKAEL_STA.a;
+		"movw    %[a], 	%[tx]	\n\t"  // tx  = b
+		"shlw    $2, 	%[tx]	\n\t"  // tx<<= 2
+		"addw    $11, 	%[tx]	\n\t"  // tx += 11
+		"addw    %[tx],	%[b]	\n\t"  // b  ^= tx
+		:
+		: [a] "m" (UKAEL_STATE.a), [b] "m" (UKAEL_STATE.b), [tx] "r" ((uint16_t)0)
+		: "cc"
+	);
 }

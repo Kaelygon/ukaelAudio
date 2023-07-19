@@ -29,13 +29,13 @@ int main(){
 	uint64_t cyclesDelta,cyclesst;
 	uint8_t warmups=1;
 
-	#define TEST_ALL 1
+	#define TEST_ALL 0
 	for(uint32_t k=0;k<waveCount+warmups;k++){
 		sampleAlloc(&sample);
 		#if TEST_ALL
 			const char* testKey = waveList[k%waveCount].id; //test all functions
 		#else
-			const char* testKey = "sine"; //test single function
+			const char* testKey = "testing"; //test single function
 		#endif
 
 		// Generate the sine wave data

@@ -105,6 +105,7 @@ static inline uint8_t ukaelRWalk(WaveArg *arg) {
 //playground
 static inline uint8_t ukaelTesting(WaveArg *arg) {
 //    ukaelTimeSeed();
-    return u32kaelRandTesting();
+	ukaelTimeSeed();
+	return UKAEL_STATE.a;
 }
 

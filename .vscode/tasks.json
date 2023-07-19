@@ -10,8 +10,8 @@
 			"args": [
 				"-g",
 				"-lportaudio",	//valgrind reports some errors? Probably alsa
-//				"-Os",	
-//				"-O3",
+				"-Os",	
+				"-O3",
 				"-Wall",
 				"-Wno-unused-function",
 				"${file}",
