@@ -1,0 +1,84 @@
+// tasks.json
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "CMake (active DEBUG)",
+            "type": "shell",
+            "command": "${workspaceFolder}/CMakeBuild.sh",
+            "args": [
+                "ACTIVE",
+                "DEBUG",
+                "./${relativeFileDirname}",
+                "${fileBasenameNoExtension}",
+            ],
+            "group": "build",
+            "problemMatcher": ["$gcc"]
+        },
+        {
+            "label": "CMake (active ASAN)",
+            "type": "shell",
+            "command": "${workspaceFolder}/CMakeBuild.sh",
+            "args": [
+                "ACTIVE",
+                "ASAN",
+                "./${relativeFileDirname}",
+                "${fileBasenameNoExtension}",
+            ],
+            "group": "build",
+            "problemMatcher": ["$gcc"]
+        },
+        {
+            "label": "CMake (active OPTIMIZED)",
+            "type": "shell",
+            "command": "${workspaceFolder}/CMakeBuild.sh",
+            "args": [
+                "ACTIVE",
+                "OPTIMIZED",
+                "./${relativeFileDirname}",
+                "${fileBasenameNoExtension}",
+            ],
+            "group": "build",
+            "problemMatcher": ["$gcc"]
+        },
+        {
+            "label": "CMake (ALL DEBUG)",
+            "type": "shell",
+            "command": "${workspaceFolder}/CMakeBuild.sh",
+            "args": [
+                "ALL",
+                "DEBUG",
+                "./${relativeFileDirname}",
+                "${fileBasenameNoExtension}",
+            ],
+            "group": "build",
+            "problemMatcher": ["$gcc"]
+        },
+        {
+            "label": "CMake (ALL ASAN)",
+            "type": "shell",
+            "command": "${workspaceFolder}/CMakeBuild.sh",
+            "args": [
+                "ALL",
+                "ASAN",
+                "./${relativeFileDirname}",
+                "${fileBasenameNoExtension}",
+            ],
+            "group": "build",
+            "problemMatcher": ["$gcc"]
+        },
+        {
+            "label": "CMake (ALL OPTIMIZED)",
+            "type": "shell",
+            "command": "${workspaceFolder}/CMakeBuild.sh",
+            "args": [
+                "ALL",
+                "OPTIMIZED",
+                "./${relativeFileDirname}",
+                "${fileBasenameNoExtension}",
+            ],
+            "group": "build",
+            "problemMatcher": ["$gcc"]
+        },
+    ]
+}
