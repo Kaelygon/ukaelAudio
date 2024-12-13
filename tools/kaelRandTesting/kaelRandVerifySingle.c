@@ -27,7 +27,7 @@ int main() {
 	const krand_t stateCount=2; //bytes in random state
 
 	//randomness statistics
-	const double maxZscore = 30.0; //any single rand test period max zscore passable, test will stop if this is exceeded 
+	const double maxZscore = 300.0; //any single rand test period max zscore passable, test will stop if this is exceeded 
 	const double maxAvgZscore = 10.0; //print only values with lower average zscore than this
 	const double minAvgZscore = 0; 
 	
@@ -43,7 +43,9 @@ int main() {
 	const uint8_t printDiffMod = 1;
 	const uint8_t printAll = 1;
 
-    const PrngCoeff coeff = {  1,   1,  1, kaelRandT_lcg, "kaelRandT_lcg"};
+    // awful distribution on mod 16 congruence 0, 6 and 16, but not noticeable by ear
+    //At least it has near full period and is fast
+    const PrngCoeff coeff = {  1,   37,  57, kaelRandT_rorr, "kaelRandT_lcg"}; 
 
     const rlcg_args mainArgs = (rlcg_args){
         .minPeriod 			= minPeriod			,

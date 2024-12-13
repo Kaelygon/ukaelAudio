@@ -6,7 +6,7 @@
 #include <stdint.h>
 #include <x86intrin.h>
 
-#include "kaelygon/kaelMacros.h" 
+#include "kaelygon/global/kaelMacros.h"
 #include "kaelygon/clock/clock.h"
 #include "kaelygon/math/math.h"
 

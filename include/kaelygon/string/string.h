@@ -15,9 +15,9 @@ struct KaelStr {
 
 typedef struct KaelStr KaelStr;
 
-KaelStr *kaelStr_alloc(uint16_t bytes);
-void kaelStr_free(KaelStr **kstr);
-uint8_t kaelStr_realloc(KaelStr *kstr, const uint16_t bytes);
+uint8_t kaelStr_alloc(KaelStr *kstr, uint16_t bytes);
+void kaelStr_free(KaelStr *kstr);
+uint8_t kaelStr_resize(KaelStr *kstr, const uint16_t bytes);
 
 uint8_t kaelStr_appendCstr(KaelStr *dest, const char *src);
 uint8_t kaelStr_appendKstr(KaelStr *dest, const KaelStr *src);

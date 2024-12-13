@@ -9,7 +9,7 @@
 #include <signal.h>
 #include <fcntl.h>
 
-#include "kaelygon/kaelMacros.h" 
+#include "kaelygon/global/kaelMacros.h"
 #include "kaelygon/terminal/keyMap.h"
 #include "kaelygon/string/string.h"
 #include "kaelygon/math/math.h"
@@ -17,8 +17,9 @@
 
 #include "kaelygon/book/book.h"
 
-void kaelTui_alloc(KaelTui *tui){
-	if (NULL_CHECK(tui)) { return; }
+uint8_t kaelTui_alloc(KaelTui *tui){
+	if (NULL_CHECK(tui)) { return KAEL_ERR_ARG; }
+	memset(tui,0,sizeof(KaelTui));
 
 	tui->canvasSize[0]=120;
 	tui->canvasSize[1]=36;
@@ -29,35 +30,20 @@ void kaelTui_alloc(KaelTui *tui){
 	
 	tui->viewSize[0]=tui->canvasSize[0]; 
 	tui->viewSize[1]=tui->canvasSize[1];
-	tui->viewSize[2]=0; 
-	tui->viewSize[3]=0;
-
-	tui->viewPos[0]=0; 
-	tui->viewPos[1]=0;
 	
-	tui->page=0;
-
-	tui->cursor[0]=0;
-	tui->cursor[1]=0;
-
-	tui->quitFlag=0;
-	tui->requestRefresh=0;
 	tui->debugLines=2;
 	
 	tui->virtualSize[0]=tui->canvasSize[0]+tui->padding[0];
 	tui->virtualSize[1]=tui->canvasSize[1]+tui->padding[1];
 
-	tui->rowBufSize = tui->virtualSize[0] * tui->charSize + tui->padding[0];
-	tui->rowBuf=kaelStr_alloc( tui->rowBufSize );
-	if NULL_CHECK(tui->rowBuf) { 
-		free(tui);
-	}
+	tui->rowBufSize = tui->virtualSize[0] * tui->charSize + tui->padding[0]; 
+	uint8_t code = kaelStr_alloc( &tui->rowBuf, tui->rowBufSize ); 
+	return code;
 }
 
 void kaelTui_free(KaelTui *tui){
 	if (NULL_CHECK(tui)) { return; }
 	kaelStr_free( &tui->rowBuf );
-	tui->rowBuf=NULL;
 }
 
 void kaelTui_setColor(int color_code) {

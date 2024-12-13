@@ -56,6 +56,7 @@ set(OPTIMIZED_FLAGS "-Os" "-flto" "-g" "-Wall"  "-Wextra" "-pedantic") # OPTIMIZ
 set(DEBUG_FLAGS "-g" "-Wall" "-Wextra" "-pedantic" "-D_GLIBCXX_DEBUG" "-fstack-usage" "-fno-omit-frame-pointer" "-O0") # DEBUG
 set(ASAN_FLAGS "${DEBUG_FLAGS}" ) # ASAN same as debug flags
 
+
 if(TYPE STREQUAL "ASAN") 
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=undefined,address -fno-omit-frame-pointer")
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address")
@@ -68,6 +69,17 @@ else()
     set(CMAKE_BUILD_TYPE ${TYPE})
 endif()
 
+
+#Inject macros
+function(set_target_macros TARGET)
+    if(CMAKE_BUILD_TYPE STREQUAL "DEBUG")
+        target_compile_definitions(${TARGET} PRIVATE KAEL_DEBUG=1)
+    else()
+        target_compile_definitions(${TARGET} PRIVATE KAEL_DEBUG=0)
+    endif()
+endfunction()
+
+
 # Function to build a specific source file (active program)
 function(build_active_source PROG)
     add_executable(${PROG}_${TYPE} ${SRC_DIR}/${PROG}.c)
@@ -78,6 +90,8 @@ function(build_active_source PROG)
     target_sources(${PROG}_${TYPE} PRIVATE ${INCLUDE_SOURCES})
 
     target_link_libraries(${PROG}_${TYPE} PRIVATE ${LINK_LIBRARIES})
+    
+    set_target_macros(${PROG}_${TYPE})
 endfunction()
 
 
@@ -92,6 +106,8 @@ function(build_all_sources)
         target_compile_options(${target_name}_${TYPE} PRIVATE $<$<CONFIG:${TYPE}>:${FLAGS}> )
         file(GLOB_RECURSE INCLUDE_SOURCES ${INCLUDE_DIR}/*.c) # Recursively add .c files from include directory (except .h files)
         target_sources(${target_name}_${TYPE} PRIVATE ${INCLUDE_SOURCES})
+
+        target_link_libraries(${target_name}_${TYPE} PRIVATE ${LINK_LIBRARIES})
 
         target_link_libraries(${target_name}_${TYPE} PRIVATE ${LINK_LIBRARIES})
     endforeach()

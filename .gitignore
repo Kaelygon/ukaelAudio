@@ -6,3 +6,6 @@
 /zlocal
 /build/*
 /Makefile
+/callgrind*
+/vgcore.*
+/doxygen/*

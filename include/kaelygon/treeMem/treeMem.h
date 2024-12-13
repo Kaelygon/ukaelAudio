@@ -1,37 +1,37 @@
-//./include/mem/kaelMem.h
+//./include/mem/treeMem.h
 // 16-bit uint c++ std::vector like data
 #pragma once
 
 #include <stdlib.h>
 #include <stdint.h>
 
-typedef struct KaelMem KaelMem;
 
-struct KaelMem{
+typedef struct{
 	void *data;
 	uint16_t elemCount; //number of elements
-	uint16_t size; //one element size in bytes
-	uint16_t capacity; //available memory, always non-zero
+	uint16_t width; //one element byte width
+	uint16_t capacity; //available memory
 	uint16_t maxElemCount; //maximum allowed elements
 	uint8_t height; //Number of recursions to grandestchild
-};
+}KaelTree;
 
-KaelMem *kaelMem_push(KaelMem *mem, const void *element);
-uint8_t kaelMem_pop(KaelMem *mem);
-uint8_t kaelMem_resize(KaelMem *mem, uint16_t n);
+uint8_t kaelTree_alloc(KaelTree *mem, uint16_t width);
+void kaelTree_free(KaelTree *mem);
 
-KaelMem *kaelMem_alloc(uint16_t size);
-void kaelMem_free(KaelMem **mem);
+KaelTree *kaelTree_push(KaelTree *mem, const void *element);
+uint8_t kaelTree_pop(KaelTree *mem);
+uint8_t kaelTree_resize(KaelTree *mem, uint16_t n);
 
-void kaelMem_set(KaelMem *mem, uint16_t index, const void *element);
-void *kaelMem_get(KaelMem *mem, uint16_t index);
+void kaelTree_setWidth(KaelTree *mem, uint16_t width);
+void kaelTree_setHeight(KaelTree *mem, uint16_t height);
 
-void *kaelMem_begin(KaelMem *mem);
-void *kaelMem_back(KaelMem *mem);
+void kaelTree_set(KaelTree *mem, uint16_t index, const void *element);
 
-void kaelMem_setSize(KaelMem *mem, uint16_t size);
-void kaelMem_setHeight(KaelMem *mem, uint16_t height);
+void *kaelTree_get(KaelTree *mem, uint16_t index);
 
-uint16_t kaelMem_count(KaelMem *mem);
-uint16_t kaelMem_empty(KaelMem *mem);
+void *kaelTree_begin(KaelTree *mem);
+void *kaelTree_back(KaelTree *mem);
+
+uint16_t kaelTree_count(KaelTree *mem);
+uint16_t kaelTree_empty(KaelTree *mem);
 

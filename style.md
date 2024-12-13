@@ -48,7 +48,6 @@ Doxygen comments to generate doc. Comments in implementation files.
 
 #include "kaelygon/foo/fooHelper.h" //Implementation files can still have header files for related functionality that start taking too much space in implementation file
 
-//Comment for IDE
 /**
  * @brief foo function example
  * 
@@ -60,6 +59,7 @@ Doxygen comments to generate doc. Comments in implementation files.
  * @param cstr
  * @return KAEL_SUCCESS, otherwise error 
 */
+//Comment for IDE hover texts
 uint16_t kaelFoo_doStuff(void *stuff, char* cstr ){}
 
 ```
@@ -75,7 +75,7 @@ typedef enum {
 	KAEL_SUCCESS = 0,
 }Kael_infoCode;
 
-extern KaelStr *KAEL_DEBUG_STR; //Errors
+extern KaelStr *GLOBAL_DEBUG; //Errors
 ```
 
 
@@ -86,9 +86,12 @@ KaelFoo *kaelFoo_function(const char *someArgPtr);
 ```
 
 Global macro for NULL_CHECK(), this is to print out variable names instead of their addresses. 
+In debug mode these output is stored in ```GLOBAL_DEBUG->infoStr[KAELDEBUG_DEBUG_STR]```
+or index KAELDEBUG_NOTE_STR for notes
 ```C
 	if (NULL_CHECK(foo)) { return; }
 	if (NULL_CHECK(foo,"This is an additional note")) { return; }
+	KAEL_ERROR_NOTE("kaelTree_get out of bounds"); 
 ```
 
 If type is stored in heap, it has alloc and free functions
@@ -133,4 +136,28 @@ Unit tests are located in ./tools/unitTesting
 void kaelFoo_unit(){
 	//Tests
 }
+```
+
+Error codes are declared in global numerator.
+```C
+typedef enum {
+	 //General
+	KAEL_SUCCESS			= 0,
+	KAEL_ERR_NULL			= 128,
+
+	 //KaelMem
+	KAEL_ERR_FULL			= 131,
+
+	 //KaelStr
+	KAELSTR_WARN_TRUNCATED	= 127,
+	KAEL_ERR_ARG			= 129,
+	KAEL_ERR_MEM			= 130
+}Kael_infoCode;
+
+//128 to 255 errors, 127 to 1 warnings, 0=success
+err = kaelStr_alloc(&str, 16)
+if(!err		); // no error
+if(err>127	); // error
+if(err		);	// error or warning
+if(err<128	);	// success or warning
 ```

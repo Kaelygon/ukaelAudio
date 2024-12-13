@@ -50,7 +50,7 @@ uint8_t kaelAudio_rorlcg(uint8_t n){
 uint8_t kaelAudio_rand(KaelAudio* kaud){
 	uint8_t *curState = &kaud->random.noise[kaud->random.index];
 	*curState = kaelAudio_rorlcg(*curState);
-
+	
 	kaud->random.index=(kaud->random.index+1) % kaud->random.size; //increment state
 	uint8_t *nextState=&kaud->random.noise[ kaud->random.index];
 	*nextState += *curState * kaelAudio_const.lcg[0] + kaelAudio_const.lcg[1]; //mix

@@ -6,9 +6,6 @@
 #include <string.h>
 #include <stdint.h>
 
-typedef struct {
-	const uint8_t* keyBytes;
-} Key;
 
 #define KEY_NULL						((uint8_t[]){0,0})
 #define KEY_CTRL_A						((uint8_t[]){1,0})

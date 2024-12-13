@@ -7,7 +7,7 @@
 
 
 struct KaelTui{
-	KaelStr* rowBuf; //row buffer to write uncompressed
+	KaelStr rowBuf; //row buffer to write uncompressed
 	uint16_t rowBufSize;
 
 	//iterate through shapeBuf till type=0
@@ -32,7 +32,7 @@ struct KaelTui{
 
 typedef struct KaelTui KaelTui;
 
-void kaelTui_alloc(KaelTui *tui);
+uint8_t kaelTui_alloc(KaelTui *tui);
 void kaelTui_free(KaelTui *tui);
 
 void kaelTui_clearTerm();

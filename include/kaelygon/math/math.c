@@ -3,7 +3,7 @@
 
 #include <stdio.h>
 #include <stdint.h>
-#include "kaelygon/kaelMacros.h"
+#include "kaelygon/global/kaelMacros.h"
 
 typedef uint16_t kmath_t;
 static const kmath_t SIGN_MASK = 1U<<(sizeof(kmath_t)*CHAR_BIT-1);

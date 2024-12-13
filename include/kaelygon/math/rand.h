@@ -13,11 +13,11 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-enum {
+enum KaelRand_const{
 	KAELRAND_SHIFT 		= 1,
 	KAELRAND_MUL   		= 37,
 	KAELRAND_ADD   		= 57,
-	KAELRAND_STATES 	= 3
+	KAELRAND_STATES 		= 3
 };
 
 typedef struct {

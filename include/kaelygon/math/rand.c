@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "kaelygon/kaelMacros.h"
+#include "kaelygon/global/kaelMacros.h"
 #include "kaelygon/math/math.h"
 #include "kaelygon/math/rand.h"
 

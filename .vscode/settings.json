@@ -158,7 +158,14 @@
     "rand.h": "c",
     "kaelman.h": "c",
     "kaellcg.h": "c",
-    "kaelrandtesting.h": "c"
+    "kaelrandtesting.h": "c",
+    "kaelmemunit.h": "c",
+    "unittest.h": "c",
+    "treemem.h": "c",
+    "kaeltreememunit.h": "c",
+    "kaelrandunit.h": "c",
+    "kaelterminalunit.h": "c",
+    "kaelrelease.h": "c"
   },
   "makefile.launchConfigurations": [
     {
