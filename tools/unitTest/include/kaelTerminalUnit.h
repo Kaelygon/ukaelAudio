@@ -1,8 +1,10 @@
 /**
- * @file testUnits.c
+ * @file kaelTerminalUnit.h
  * 
  * @brief Test string and terminal
  */
+
+#pragma once
 
 #include <stdio.h>
 #include <string.h>
@@ -22,11 +24,6 @@
 
 
 void kaelTerminal_unit() {
-	KAEL_DEBUG_STR=kaelStr_alloc(121);
-	KAEL_INFO_STR =kaelStr_alloc(121);
-
-	kaelStr_setCstr(KAEL_DEBUG_STR, "Debug Str");
-	kaelStr_setCstr(KAEL_INFO_STR,  "Info Str");
 
 	kaelTui_rawmode(1); 
 
@@ -48,7 +45,7 @@ void kaelTerminal_unit() {
 
 	ktime_t PROG_START_TIME=__rdtsc(); //debug
 	while (!kaelTui_getQuitFlag(&tui)) {
-		if(kaelClock_getFrame(&clock) == 4){
+		if(kaelClock_getFrame(&clock) == 16){ //run for 16 frames
 			kaelStr_appendCstr(keyStr,(char*)KEY_SHIFT_Q); //Inject quit key
 		}
 
@@ -88,7 +85,6 @@ void kaelTerminal_unit() {
 	}
 	ktime_t PROG_END_TIME=__rdtsc(); //debug 
 
-	kaelStr_free(&KAEL_INFO_STR);
 	kaelStr_free(&keyStr);
 	for(uint8_t i=0;i<charBufCount;i++){
 		kaelStr_free(&charBuffer[i]);
@@ -102,9 +98,6 @@ void kaelTerminal_unit() {
 	printf("\n");
 	printf("Time: %f\n",(double)(PROG_END_TIME-PROG_START_TIME)/CLOCK_SPEED_HZ); //debug
 	
-	kaelStr_print(KAEL_DEBUG_STR);
-	printf("\n");
-	kaelStr_free(&KAEL_DEBUG_STR);
 
 	printf("kaelTerminal_unit Done\n");	
 }

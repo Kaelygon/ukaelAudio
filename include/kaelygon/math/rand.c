@@ -5,12 +5,13 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "kaelygon/kaelMacros.h"
 #include "kaelygon/math/math.h"
 #include "kaelygon/math/rand.h"
 
 //Simple cstring to hash 
 void kaelRand_hash(char* cstr, uint8_t *numArr, uint8_t arrLen){
-	if(cstr==NULL || numArr==NULL || arrLen==0){return;}
+	if(NULL_CHECK(cstr) || NULL_CHECK(numArr) || arrLen==0 ){return;}
 	const uint8_t ASCII_START = 32;
 	const uint8_t ASCII_END = 126;
 	const uint8_t ASCII_SCALE = (0xFF) / (ASCII_END - ASCII_START)+1;
@@ -27,9 +28,9 @@ void kaelRand_hash(char* cstr, uint8_t *numArr, uint8_t arrLen){
 
 //Seed from string hash. NULL string = zero
 void kaelRand_seed(KaelRand *krand, char *cstr){
-	if(krand==NULL){return;}
+	if(NULL_CHECK(krand)){return;}
 	memset(&krand->state,0,sizeof(uint8_t)*KAELRAND_STATES);
-	if(cstr==NULL){return;}
+	if(cstr==NULL){return;} //Valid use of NULL
 	krand->last=(uint8_t)cstr[0]*KAELRAND_MUL+KAELRAND_ADD;
 	kaelRand_hash( cstr, krand->state, KAELRAND_STATES );
 }

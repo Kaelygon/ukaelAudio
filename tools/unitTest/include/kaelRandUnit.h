@@ -1,4 +1,11 @@
-//./tools/rorLCG-Testing.c
+/**
+ * @file kaelRandUnit.h
+ * 
+ * @brief Test main math/rand.h multi state PCG
+ */
+
+#pragma once
+
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>

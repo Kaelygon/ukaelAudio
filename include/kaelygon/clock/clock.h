@@ -2,7 +2,9 @@
 #pragma once
 
 #define CLOCK_SPEED_HZ 3700000000U // 36999640471U
-typedef uint64_t ktime_t;
+
+typedef uint64_t ktime_t; //test system rdstc is still 64-bit
+#define KTIME_MAX UINT64_MAX
 
 typedef struct{
 	ktime_t timeUnit; // how many units one second is. e.g. 1000=milliseconds

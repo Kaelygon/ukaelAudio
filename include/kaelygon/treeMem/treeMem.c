@@ -37,7 +37,7 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "kaelygon/kaelMem.h"
+#include "kaelygon/treeMem/treeMem.h"
 #include "kaelygon/math/math.h"
 #include "kaelygon/kaelMacros.h"
 
@@ -102,6 +102,7 @@ void kaelMem_free(KaelMem **mem){
 
 
 //---rescaling---
+//Pushing NULL pushes zeroed element
 KaelMem *kaelMem_push(KaelMem *mem, const void *element){
 	if(NULL_CHECK(mem)){return NULL;}
 
@@ -122,7 +123,7 @@ KaelMem *kaelMem_push(KaelMem *mem, const void *element){
 		}
 
 		void *newData = realloc(mem->data, newAlloc);
-		if(NULL_CHECK(newData)){ return NULL; }
+		if(NULL_CHECK(newData,"pushRealloc")){ return NULL; }
 		mem->capacity=newAlloc;
 		mem->data=newData;
 	}
@@ -132,7 +133,7 @@ KaelMem *kaelMem_push(KaelMem *mem, const void *element){
     void *dest = kaelMem_back(mem); 
 	if(NULL_CHECK(dest)){return NULL;}
 	
-	if(element==NULL){
+	if(element==NULL){ //No macro since NULL use is valid
     	memset(dest, 0, mem->size);
 	}else{
     	memcpy(dest, element, mem->size);
@@ -157,7 +158,7 @@ uint8_t kaelMem_pop(KaelMem *mem){
 	if( newAlloc <= scaleAlloc ){ //shrink if below threshold
 		newAlloc = mem->capacity/GROWTH_NUMER*GROWTH_DENOM;
 		void *newData = realloc(mem->data, newAlloc);
-		if( NULL_CHECK(newData) ){ return KAEL_ERR_MEM; }
+		if( NULL_CHECK(newData,"popRealloc") ){ return KAEL_ERR_MEM; }
 		mem->capacity=newAlloc;
 		mem->data=newData;
 	}
@@ -167,7 +168,7 @@ uint8_t kaelMem_pop(KaelMem *mem){
 }
 
 uint8_t kaelMem_resize(KaelMem *mem, uint16_t elemCount){
-	if(NULL_CHECK(mem)){return KAEL_ERR_NULL;}
+	if(NULL_CHECK(mem,"resize")){return KAEL_ERR_NULL;}
 
 	uint16_t newCount = kaelMath_min(elemCount, ELEMS_MAX);
 	uint16_t minAlloc = newCount+ELEMS_MIN;
@@ -182,15 +183,27 @@ uint8_t kaelMem_resize(KaelMem *mem, uint16_t elemCount){
 	return KAEL_SUCCESS;
 }
 
+//---setters---
+
 //set element byte width. Any existing data will be invalidated
 void kaelMem_setSize(KaelMem *mem, uint16_t size){
-	if(NULL_CHECK(mem)){return;}
+	if(NULL_CHECK(mem,"setSize")){return;}
 	mem->size=size;
 	uint16_t elemCount = mem->elemCount;
 	mem->maxElemCount = UINT16_MAX / mem->size - ELEMS_MIN;
 	kaelMem_resize(mem,elemCount); //resize with new byte width
 }
 
+void kaelMem_set(KaelMem *mem, uint16_t index, const void *element){
+	if(NULL_CHECK(mem,"set")){return;}
+	void *dest = kaelMem_get(mem, index);
+	memcpy(dest, element, mem->size);
+}
+
+void kaelMem_setHeight(KaelMem *mem, uint16_t height){
+	if(NULL_CHECK(mem)){return;}
+	mem->height=height;
+}
 
 //---getters---
 
@@ -204,25 +217,12 @@ uint16_t kaelMem_empty(KaelMem *mem){
 	return (mem->elemCount==0);
 }
 
-//---setters---
-
-void kaelMem_set(KaelMem *mem, uint16_t index, const void *element){
-	if(NULL_CHECK(mem)){return;}
-	void *dest = kaelMem_get(mem, index);
-	memcpy(dest, element, mem->size);
-}
-
-void kaelMem_setHeight(KaelMem *mem, uint16_t height){
-	if(NULL_CHECK(mem)){return;}
-	mem->height=height;
-}
-
 //---get pointers---
 
 //get by index
 void *kaelMem_get(KaelMem *mem, uint16_t index){
-	if(NULL_CHECK(mem)){return NULL;}
-	if(NULL_CHECK(mem->data)){return NULL;}
+	if(NULL_CHECK(mem,"get")){return NULL;}
+	if(NULL_CHECK(mem->data,"get")){return NULL;}
 	#if KAEL_DEBUG==1
 		if(index >= mem->elemCount){
 			printf("Index out of bounds\n"); 
@@ -242,29 +242,3 @@ void *kaelMem_back(KaelMem *mem){
     void *elem = kaelMem_get( mem, mem->elemCount-1 );
 	return elem;
 }
-#include "kaelygon/string/string.h"
-
-
-/*
-void kaelMem_freeIterative(KaelMem *root) {
-    if (NULL_CHECK(root)) return;
-
-    KaelMem **stack = malloc(sizeof(KaelMem *) * MAX_DEPTH); // Explicit stack
-    int top = 0;
-    stack[top++] = root;
-
-    while (top > 0) {
-        KaelMem *current = stack[--top];
-        if (current->height > 0) {
-            for (uint16_t i = 0; i < current->elemCount; ++i) {
-                stack[top++] = kaelMem_get(current, i); // Push child elements
-            }
-        }
-        free(current->data);
-        free(current);
-    }
-
-    free(stack);
-}
-
-*/

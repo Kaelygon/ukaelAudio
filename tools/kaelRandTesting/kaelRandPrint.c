@@ -25,10 +25,12 @@ int main(){
 
 	// >2^23.9 period with 2 stateCount
 	//coeff = (PrngCoeff){  0,   83, 124, kaelRandT_lfsr, NULL}; 	//Zavg:0.28 //4.0db deviation //FAIL_DIFF Z:9.75  mod 17
-	coeff = (PrngCoeff){  3,  83,  63, kaelRandT_rorr, NULL}; 		//Zavg:1.63 //4.4db deviation //FAIL_DIFF Z:13.45 mod 17
+	//coeff = (PrngCoeff){  3,  83,  63, kaelRandT_rorr, NULL}; 		//Zavg:1.63 //4.4db deviation //FAIL_DIFF Z:13.45 mod 17
 
 	//coeff = (PrngCoeff){  1,   7,  55, kaelRandT_rorr, "kaelRandT_rorr"};
 
+	//Current main implementation //~5db variation, sounds the best as the deviation is spread out to narrow bands
+	coeff = (PrngCoeff){  1,  37,  57, kaelRandT_rorr, NULL};
 
 	uint8_t byteCount = 2; 
     KaelRand *randState = kaelRandT_new(byteCount);
@@ -42,9 +44,9 @@ int main(){
 	uint64_t startTime = __rdtsc();
 	for(uint64_t i=0; i<(uint64_t)(pow(2,24));i++){
 		num = kaelRandT_base(randState, coeff);
-		//fwrite(&num,sizeof(uint8_t),1,fptr);
-		fprintf(fptr,"%u ",num);
-		//printf("%u ",num);
+		fwrite(&num,sizeof(uint8_t),1,fptr); //binary
+		//fprintf(fptr,"%u ",num); //ascii
+		//printf("%u ",num); //terminal
 	}
 	uint64_t endTime = __rdtsc();
 	printf("time %.4f \n", (double)(endTime-startTime)/3700000000);

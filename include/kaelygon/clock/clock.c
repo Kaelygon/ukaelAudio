@@ -9,7 +9,6 @@
 #include "kaelygon/kaelMacros.h" 
 #include "kaelygon/clock/clock.h"
 #include "kaelygon/math/math.h"
-#define KTIME_MAX UINT64_MAX
 
 void kaelClock_init(KaelClock *clock){
 	if (NULL_CHECK(clock)) { return; }
@@ -33,8 +32,8 @@ ktime_t kaelClock_timeUnits(const KaelClock clock){
 }
 
 void kaelClock_sleepUnits(const KaelClock clock, ktime_t sleepTime) {
-		ktime_t placeholderSleepTime=sleepTime*clock.unitCycles/(CLOCK_SPEED_HZ/1000000);
-		usleep(placeholderSleepTime);
+	ktime_t placeholderSleepTime=sleepTime*clock.unitCycles/(CLOCK_SPEED_HZ/1000000);
+	usleep(placeholderSleepTime);
 //	ktime_t start=kaelClock_timeUnits(clock);
 //	ktime_t elapsed=0;
 //	do{
@@ -49,7 +48,13 @@ ktime_t kaelClock_sync(KaelClock *clock){
 	clock->frameCounter++;
 	// Sync screen update to CPU clock
 	ktime_t timeNow = kaelClock_timeUnits(*clock);
-	ktime_t elapsed = timeNow - clock->frameStartTime;
+	ktime_t elapsed=0;
+	if(timeNow < clock->frameStartTime){ //clock had wrapped around
+		ktime_t wrappedTime = KTIME_MAX - clock->frameStartTime; //time between frameStartTime and overflow
+		elapsed = wrappedTime + timeNow; //corrected time
+	}else{
+		elapsed = timeNow - clock->frameStartTime; //delta when no overflow
+	}
     ktime_t waitTime = kaelMath_sub(clock->unitsPerFrame, elapsed); //prevent underflow
     clock->frameStartTime = timeNow+waitTime; //New frame starts after the wait
 	kaelClock_sleepUnits(*clock, waitTime);

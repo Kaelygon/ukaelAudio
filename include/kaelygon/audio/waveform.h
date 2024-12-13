@@ -46,7 +46,7 @@ uint8_t kaelAudio_triangle(KaelAudio* kaud) {
 uint8_t kaelAudio_rorlcg(uint8_t n){
 	return ((n>>kaelAudio_const.lcg[2]) | (n<<kaelAudio_const.lcg[3])) * kaelAudio_const.lcg[0] + kaelAudio_const.lcg[1];
 }
-
+//replace with kaelygon/math/rand.h
 uint8_t kaelAudio_rand(KaelAudio* kaud){
 	uint8_t *curState = &kaud->random.noise[kaud->random.index];
 	*curState = kaelAudio_rorlcg(*curState);

@@ -130,7 +130,7 @@ uint8_t kaelRandT_lfsr( uint8_t num, const PrngCoeff coeff  ){
 
 //operation is done only for some bytes
 //identical to ./math/rand.h
-uint8_t kaelRandT_baseOriginal( KaelRand *krand, const PrngCoeff coeff ){ 
+uint8_t kaelRandT_base( KaelRand *krand, const PrngCoeff coeff ){ 
 	//if(krand==NULL || coeff==NULL){return 0;}
 	
 	for(uint8_t i=0; i<krand->count;i++){ //Cycle bytes
@@ -148,26 +148,6 @@ uint8_t kaelRandT_baseOriginal( KaelRand *krand, const PrngCoeff coeff ){
 		//if( newValue==0 ){ //only break cycle when 0 (slowest)
 		//if( newValue!=0 ){ //always break except when 0 (fastest)
 		if( newValue==0 || newValue&0b11111 ){ // 3/8-1/256 chance carry modifying the next elements
-			break;
-		}
-	}
-
-	return krand->prev;
-}
-
-
-//operation is done only for some bytes
-//identical to ./math/rand.h
-uint8_t kaelRandT_base( KaelRand *krand, const PrngCoeff coeff ){ 
-	//if(krand==NULL || coeff==NULL){return 0;}
-	
-	for(uint8_t i=0; i<krand->count;i++){ //Cycle bytes
-		uint8_t newValue = krand->state[i];
-		newValue = coeff.oper(newValue,coeff); //Apply PRNG operation
-		krand->prev+= newValue; //mix with previous sum
-		krand->state[i] = newValue; //update state
-
-		if( newValue==0 || newValue&0b11111 ){ 
 			break;
 		}
 	}
