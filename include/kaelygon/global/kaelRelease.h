@@ -1,7 +1,7 @@
 /**
  * @file kaelRelease.h
  * 
- * @brief Release build macros for CMake OPTIMIZED target
+ * @brief kaelMacros implementation header for CMake RELEASE target
  * 
  */
 
@@ -11,11 +11,15 @@
 
 //Outside debugging, only null check without printing
 //Optimizer should be able to parse out unused parts
+#define KAEL_MACRO_ARGS2(_1, _2, NAME, ...) NAME
 
-#define KAEL_ERROR_NOTE(note) (printf("%s",note))
+//Assert
+#define KAEL_ASSERT(...) ((void)0) 
 
-#define KAEL_GET_MACRO(_1, _2, NAME, ...) NAME
+
+//Null checks should still act like normally
 #define NULL_CHECK_ARGS1(ptr) ( ((ptr) == NULL) ? 1 : 0 )
 #define NULL_CHECK_ARGS2(ptr, dummy) ( ((ptr) == NULL) ? 1 : 0 )
 
-#define NULL_CHECK(...) KAEL_GET_MACRO(__VA_ARGS__, NULL_CHECK_ARGS2, NULL_CHECK_ARGS1)(__VA_ARGS__)
+//appends errors to KAEL_DEBUG_STR, returns 1 if ptr is NULL, otherwise 0
+#define NULL_CHECK(...) KAEL_MACRO_ARGS2(__VA_ARGS__, NULL_CHECK_ARGS2, NULL_CHECK_ARGS1)(__VA_ARGS__)

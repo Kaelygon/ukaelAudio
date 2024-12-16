@@ -1,6 +1,4 @@
-
-#ifndef TOOLS_KAELPCG_H
-#define TOOLS_KAELPCG_H
+#pragma once
 //1-byte array permuted congruential generator
 /*
 Goals: 
@@ -30,25 +28,14 @@ Goals:
 
 */
 
-#include <stdint.h>
-#include <stdlib.h>
-
-#ifndef CHAR_BIT
-	#define CHAR_BIT 8
-#endif
-
-typedef uint8_t krand_t;
-
-typedef struct {
-	uint8_t *state; //PRNG state
-	uint8_t count; //number of elements in state
-	uint8_t prev; //each iteration state elements are conditionally summed to this, then returned
-}KaelRand;
+#include "kaelygon/global/kaelMacros.h"
+#include "kaelygon/math/math.h"
+#include "kaelygon/math/k32.h"
 
 
 typedef struct PrngCoeff PrngCoeff;
 
-typedef uint8_t (*PrngOper)(uint8_t num, const PrngCoeff coeff);
+typedef uint8_t (*PrngOper)(kael32_t *krand, const PrngCoeff coeff);
 
 //PRNG constants
 struct PrngCoeff{
@@ -59,26 +46,63 @@ struct PrngCoeff{
 	const char *name; //optional for printing
 };
 
-KaelRand *kaelRandT_new(uint8_t stateCount){
-	KaelRand *krand = malloc(sizeof(KaelRand)); 
-	if(krand==NULL){return NULL;}
 
-	krand->state = calloc(stateCount, sizeof(uint8_t));
-	if(krand->state==NULL){free(krand); return NULL;}
-
-	krand->prev = 0;
-	krand->count = stateCount;
-	return krand;
+//sanity checking with gcc rand
+uint8_t kaelRandT_gccRand( uint8_t num, const PrngCoeff coeff __attribute__((unused))  ){ 
+	num = rand();
+		return num;
 }
 
-void kaelRandT_del(KaelRand **krand){
-	if(krand==NULL || *krand==NULL){return;}
-
-	free((*krand)->state);
-	free(*krand);
-	*krand=NULL;
+uint8_t kaelRandT_rorr(kael32_t *krand, const PrngCoeff coeff){
+	k32_rorr(krand, coeff.shift);
+	k32_u8mad(krand, krand, coeff.mul, coeff.add);
+	return krand->s[0];
 }
 
+uint8_t lfsr(uint8_t num) {
+	uint8_t out = num==0;
+	out^=(num>>5);
+	out^=(num>>7);
+    return (out&0b1) ^ (num<<1);
+}
+
+uint8_t kaelRandT_lcg(kael32_t *krand, const PrngCoeff coeff){
+	uint8_t carry = k32_u8mad(krand, krand, coeff.mul, coeff.add);
+	return krand->s[0] + carry;
+}
+//KAEL32_BYTES-1
+uint8_t kaelRandT_pcg(kael32_t *krand, const PrngCoeff coeff){
+	k32_rorr(krand, coeff.shift);
+	uint8_t carry = k32_u8mad(krand, krand, coeff.mul, coeff.add);
+	carry = k32_u8add(krand, krand, carry);
+	return krand->s[0] + carry;
+}
+
+uint8_t kaelRandT_base( kael32_t *krand, const PrngCoeff coeff ){
+	return coeff.oper(krand, coeff);
+}
+
+
+
+//compare two kael32_t states
+//0 means they are equal
+uint8_t kaelRandT_cmp(const kael32_t *krand1, const kael32_t *krand2){
+	if(krand1==NULL || krand2==NULL){ return -1; }
+	return memcmp(&krand1->s,&krand2->s,KAEL32_BYTES);
+	return 0;
+}
+
+
+
+
+
+
+
+
+
+
+
+/*
 
 //Rotate right
 //No null check since this is expected to be run in thight loops
@@ -99,13 +123,6 @@ uint8_t lfsr(uint8_t num) {
 }
 
 
-
-
-//sanity checking with gcc rand
-uint8_t kaelRandT_gccRand( uint8_t num, const PrngCoeff coeff __attribute__((unused))  ){ 
-	num = rand();
-		return num;
-}
 
 //lcg
 uint8_t kaelRandT_lcg( uint8_t num, const PrngCoeff coeff  ){ 
@@ -130,14 +147,14 @@ uint8_t kaelRandT_lfsr( uint8_t num, const PrngCoeff coeff  ){
 
 //operation is done only for some bytes
 //identical to ./math/rand.h
-uint8_t kaelRandT_base( KaelRand *krand, const PrngCoeff coeff ){ 
+uint8_t kaelRandT_baseOg( kael32_t *krand, const PrngCoeff coeff ){ 
 	//if(krand==NULL || coeff==NULL){return 0;}
 	
-	for(uint8_t i=0; i<krand->count;i++){ //Cycle bytes
-		uint8_t newValue = krand->state[i];
+	for(uint8_t i=0; i<KAEL32_BYTES;i++){ //Cycle bytes
+		uint8_t newValue = krand->s[i];
 		newValue = coeff.oper(newValue,coeff); //Apply PRNG operation
 		krand->prev+= newValue; //mix with previous sum
-		krand->state[i] = newValue; //update state
+		krand->s[i] = newValue; //update state
 
 		//Arbitrary condition to break the cycle. The earlier break, the less random result
 		//modulus of consequtive ouputs difference and modulus takes biggest hit in distribution uniformity
@@ -147,57 +164,11 @@ uint8_t kaelRandT_base( KaelRand *krand, const PrngCoeff coeff ){
 		//in a way this acts as a carry where each state byte is a digit
 		//if( newValue==0 ){ //only break cycle when 0 (slowest)
 		//if( newValue!=0 ){ //always break except when 0 (fastest)
-		if( newValue==0 || newValue&0b11111 ){ // 3/8-1/256 chance carry modifying the next elements
+		if( newValue!=0 || newValue&0b11111 ){ // 3/8-1/256 chance carry modifying the next elements
 			break;
 		}
 	}
 
 	return krand->prev;
 }
-
-
-
-
-
-
-
-//Returns state array byte count
-uint8_t kaelRandT_getStateCount(KaelRand *krand){
-	if(krand==NULL){return 0;}
-	return krand->count;
-}
-
-//*stateArray must be at least as big as krand->state
-void kaelRandT_seed(KaelRand *krand, uint8_t *stateArray){
-	if(krand==NULL || krand->state==NULL){return;}
-
-	krand->prev = 0;
-	if(stateArray==NULL){ //Null = Zero all
-		memset(krand->state, 0, krand->count);
-		return;
-	}
-	memcpy(krand->state, stateArray, krand->count);
-}
-
-//compare two KaelRand states
-//0 means they are equal
-uint8_t kaelRandT_cmp(const KaelRand *krand1, const KaelRand *krand2){
-	if(krand1==NULL || krand2==NULL){ return -1; }
-
-	if(krand1->count != krand2->count){ return 1; }
-	if(krand1->prev != krand2->prev){ return 1; }
-
-	for(uint8_t i=0; i < krand1->count; i++){
-		if(krand1->state[i] != krand2->state[i]){
-			return 1;
-		}
-	}
-	return 0;
-}
-
-#endif
-
-
-
-
-
+*/

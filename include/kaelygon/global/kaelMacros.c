@@ -10,9 +10,11 @@
 #include <stdint.h>
 
 #include "kaelygon/global/kaelMacros.h"
-#include "kaelygon/string/string.h"
 
+// --- Debug implementation ---
 #if KAEL_DEBUG==1
+
+#include "kaelygon/string/string.h"
 
 KaelDebug *GLOBAL_DEBUG = NULL;
 
@@ -64,6 +66,8 @@ uint8_t kaelDebug_nullCheck(const void* ptr, const char *ptrName, const char *no
         snprintf(buffer, sizeof(buffer), "NULL%s_%s ", ptrName, note);
         buffer[sizeof(buffer) - 1] = '\0'; // Ensure null termination
         kaelStr_pushCstr(&GLOBAL_DEBUG->infoStr[KAELDEBUG_ERROR_STR], buffer);
+
+        printf("%s",buffer);
         return KAEL_ERR_NULL;
     }
     return KAEL_SUCCESS;
@@ -91,5 +95,9 @@ uint8_t kaelDebug_printInfoStr(){
     return outCode;
 }
 
+
+#else
+// --- Release implementation ---
+//If any
 
 #endif

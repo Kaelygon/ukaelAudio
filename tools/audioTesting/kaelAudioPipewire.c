@@ -178,10 +178,10 @@ int main(int argc, char *argv[])
                           PW_STREAM_FLAG_RT_PROCESS,
                           params, 1);
         
-        float volume = 0.0;
-        for(int i=0;i<1280000;i++){
+        //float volume = 0.0;
+       // for(int i=0;i<1280000;i++){
         //    pw_stream_set_control(data.stream, i, 1, &volume, 0);
-        }
+        //}
 
 
 /*

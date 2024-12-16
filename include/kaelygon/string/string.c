@@ -200,3 +200,14 @@ uint8_t kaelStr_print(const KaelStr *kstr){
 	printf(kstr->s);
 	return KAEL_SUCCESS;
 }
+
+//--- Private functions ---
+
+void kaelStr_reverseCstr(char* cstr){
+    size_t l = strlen(cstr)-1;
+    for(size_t i=0; i<=l/2; i++){
+        char buf=cstr[i];
+        cstr[i]=cstr[l-i];
+        cstr[l-i]=buf;
+    }
+}

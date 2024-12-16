@@ -1,5 +1,4 @@
-#ifndef TOOLS_RANDTESTS_H
-#define TOOLS_RANDTESTS_H
+#pragma once
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -9,10 +8,14 @@
 #include <unistd.h> 
 #include <omp.h>
 
-#include "kaelygon/math/math.h"
+//#include "kaelygon/math/math.h"
+//#include "kaelygon/math/rand.h"        
+//#include "kaelygon/math/base256.h"
 
 #include "./kaelRandTesting.h"
+#include "../../../include/kaelygon/math/k32.h"
 
+typedef uint8_t krand_t;
 
 typedef enum {
 	RAND_PASS = 0,
@@ -20,10 +23,6 @@ typedef enum {
 	FAIL_DIFF = 2,
 	FAIL_BITONES = 3
 }Kael_randFail;
-
-
-typedef uint8_t krand_t;
-
 
 
 //PCG search parameters
@@ -129,35 +128,36 @@ double calcZscore(const uint64_t comparedValue, const uint64_t sampleSize, const
 //Floyd's tort and hare
 void kaelRandT_findCycle(CycleTuple *cycle, uint64_t maxCheckCount, const PrngCoeff coeff) {
     uint64_t stateCount = cycle->stateCount;
-	KaelRand *hare = kaelRandT_new(stateCount);
-	KaelRand *tort = kaelRandT_new(stateCount);
+	kael32_t hare = {0};
+	kael32_t tort = {0};
 
     cycle->period = UINT64_MAX;
 
-    kaelRandT_seed(hare,NULL);
-    kaelRandT_seed(tort,NULL);
+    k32_seed(&hare,NULL);
+    k32_seed(&tort,NULL);
 
 	uint64_t count=0;
 	do { //Main phase
-		kaelRandT_base(tort, coeff); //walk 1
+		kaelRandT_base(&tort, coeff); //walk 1
 
-		kaelRandT_base(hare, coeff); //leap 2
-		kaelRandT_base(hare, coeff);
+		kaelRandT_base(&hare, coeff); //leap 2
+		kaelRandT_base(&hare, coeff);
 
 		count++;
 		if(count>maxCheckCount){
 			goto FINDCYCLE_FREE_LABEL; //no period 
 		}
-	} while (kaelRandT_cmp(hare,tort));
+	} while (kaelRandT_cmp(&hare,&tort));
 
 	//Find the position mu of first repetition.
 	uint64_t mu=0;
-    kaelRandT_seed(tort,NULL);
-	while (kaelRandT_cmp(hare,tort)){
-		kaelRandT_base(tort, coeff);
-		kaelRandT_base(hare, coeff);
+    k32_seed(&tort,NULL);
+	while (kaelRandT_cmp(&hare,&tort)){
+		kaelRandT_base(&tort, coeff);
+		kaelRandT_base(&hare, coeff);
 		mu++;
 		if(mu>maxCheckCount){
+            printf("Invalid mu\n");
 			goto FINDCYCLE_FREE_LABEL; 
 		}
 	}
@@ -171,16 +171,15 @@ void kaelRandT_findCycle(CycleTuple *cycle, uint64_t maxCheckCount, const PrngCo
 
 	cycle->period=0;
 	do { //iterate till back to the starting state
-		kaelRandT_base(tort, coeff);
+		kaelRandT_base(&tort, coeff);
 		cycle->period++;
 		if(cycle->period>maxCheckCount){
-			goto FINDCYCLE_FREE_LABEL; 
+            printf("Invalid period\n");
+			break; 
 		}
-	} while (kaelRandT_cmp(hare,tort));
+	} while (kaelRandT_cmp(&hare,&tort));
 	
     FINDCYCLE_FREE_LABEL:
-    kaelRandT_del(&hare);
-    kaelRandT_del(&tort);
 	return;
 }
 
@@ -288,7 +287,7 @@ void kaelRandT_diffMod_del(RandDiffTest **dt){
 
 void kaelRandT_diffMod(const rlcg_args arg, RandDiffTest *dt, RandSearchIter *params, const uint8_t runTest ){
     if(dt==NULL){return;}
-    krand_t newDiff = (params->lastValue- params->currentValue); 
+    krand_t newDiff = (params->currentValue - params->lastValue); //How much was added to reach current value
     newDiff %= dt->diffModulus;
     dt->diffCounters[newDiff]++;
     params->lastValue = params->currentValue;
@@ -372,6 +371,13 @@ void kaelRandT_printArray(krand_t *num, size_t count, uint8_t printBrackets){
 //maybe this could take *kaelStr instead of print
 void kaelRandT_printPRNGResult( const rlcg_args arg, const RandSearchIter params, const CycleTuple *startState, const PrngCoeff coeff, const RandDiffTest *diffTest){
     #define PTR_TO_CHAR(ptr)(#ptr)
+    
+    if(arg.printDiffMod){
+        printf("Difference mod %lu congruence distribution\n",diffTest->diffModulus);
+        for(uint64_t i=0; i<diffTest->diffModulus; i++){
+            printf("%lu:%lu\n", i, diffTest->diffCounters[i]);
+        }
+    }
 
     //print parameters
     krand_t printCoeffs[3] = {coeff.shift, coeff.mul, coeff.add};
@@ -397,21 +403,14 @@ void kaelRandT_printPRNGResult( const rlcg_args arg, const RandSearchIter params
     }
 
     //print sample
-    KaelRand *sample = kaelRandT_new(startState->stateCount);
-    memcpy(sample->state, startState->state, sample->count);
+    kael32_t sample = {0};
+    memcpy(sample.s, startState->state, KAEL32_BYTES);
     for(uint64_t i=0; i<12; i++){ 
-        uint64_t iterValue = kaelRandT_base(sample, coeff); 
+        uint64_t iterValue = kaelRandT_base(&sample, coeff); 
         printf("%lu ",iterValue);
     }
-    kaelRandT_del(&sample);
+
     printf("\n");
-    
-    if(arg.printDiffMod){
-        printf("Difference mod %lu congruence distribution\n",diffTest->diffModulus);
-        for(uint64_t i=0; i<diffTest->diffModulus; i++){
-            printf("%lu:%lu\n", i, diffTest->diffCounters[i]);
-        }
-    }
 }
 
 //------
@@ -437,7 +436,7 @@ uint8_t kaelRandT_runRandTests(const rlcg_args arg, const PrngCoeff coeff){
     RandModTest *modTest = kaelRandT_manyMod_new(arg.modList, arg.modCount);
     RandDiffTest *diffTest = kaelRandT_diffMod_new(arg.diffModCount);
 	RandBitDistTest *bitDistTest = kaelRandT_bitCounts_new();
-    KaelRand *randState = kaelRandT_new(startState->stateCount);
+    kael32_t randState = {0};
 
     //full period was tested
 	uint8_t periodIsTested = 0;
@@ -453,12 +452,12 @@ uint8_t kaelRandT_runRandTests(const rlcg_args arg, const PrngCoeff coeff){
     }
 	
     //copy for iterations
-    memcpy(randState->state, startState->state, sizeof(randState->state[0]) * startState->stateCount );
+    memcpy(&randState.s, &startState->state, KAEL32_BYTES );
 
 	while(1){ //BOF Random test loop
 		params.inc++;
 
-		if( ( params.inc >= stopCount) || params.notRandom ){ //break if inc beyond stopping point or some test failed
+		if( ( params.inc >= stopCount) || (params.notRandom && !arg.printAll) ){ //break if inc beyond stopping point or some test failed
 
             //printing conditions
             //zscore within min and max
@@ -491,7 +490,7 @@ uint8_t kaelRandT_runRandTests(const rlcg_args arg, const PrngCoeff coeff){
 	        stopCount = startState->period < arg.checkCount ? startState->period : arg.checkCount; 
 		}
 
-		params.currentValue = kaelRandT_base(randState, coeff); //iterative value
+		params.currentValue = kaelRandT_base(&randState, coeff); //iterative value
 
 		//randomness checks
 
@@ -517,9 +516,6 @@ uint8_t kaelRandT_runRandTests(const rlcg_args arg, const PrngCoeff coeff){
 	kaelRandT_bitCounts_del(&bitDistTest);
 
     kaelRandT_cycleTuple_del(&startState);
-    
-    kaelRandT_del(&randState);
 
 	return passed;
 }
-#endif

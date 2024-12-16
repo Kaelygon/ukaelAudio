@@ -1,7 +1,7 @@
 # CMakefile
 
 if(NOT OMP_ENABLED)
-    set(OMP_ENABLED 0) # OMP has some leak bug, so better disable it for malloc testing 
+    set(OMP_ENABLED 1) # OMP has some leak bug, so better disable it for malloc testing 
 endif()
 
 cmake_minimum_required(VERSION 3.20)
@@ -52,7 +52,7 @@ set(CMAKE_C_COMPILER "gcc" CACHE STRING "C Compiler" FORCE)
 
 # Set optimization or debugger flags
 set(CMAKE_BUILD_TYPE Debug)
-set(OPTIMIZED_FLAGS "-Os" "-flto" "-g" "-Wall"  "-Wextra" "-pedantic") # OPTIMIZED
+set(RELEASE_FLAGS "-Os" "-flto" "-g" "-Wall"  "-Wextra" "-pedantic") # RELEASE
 set(DEBUG_FLAGS "-g" "-Wall" "-Wextra" "-pedantic" "-D_GLIBCXX_DEBUG" "-fstack-usage" "-fno-omit-frame-pointer" "-O0") # DEBUG
 set(ASAN_FLAGS "${DEBUG_FLAGS}" ) # ASAN same as debug flags
 
@@ -61,8 +61,8 @@ if(TYPE STREQUAL "ASAN")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=undefined,address -fno-omit-frame-pointer")
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address")
     set(FLAGS ${ASAN_FLAGS})
-elseif(TYPE STREQUAL "OPTIMIZED") 
-	set(FLAGS ${OPTIMIZED_FLAGS})
+elseif(TYPE STREQUAL "RELEASE") 
+	set(FLAGS ${RELEASE_FLAGS})
     set(CMAKE_BUILD_TYPE ${TYPE})
 else()
     set(FLAGS ${DEBUG_FLAGS})

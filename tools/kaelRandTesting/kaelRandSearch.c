@@ -16,8 +16,8 @@ KaelRandT = KaelRand Testing
 
 
 #include "./include/kaelRandTesting.h"
-
 #include "./include/kaelRandTrials.h"
+#include "kaelygon/math/math.h"
 
 //---------
 //1,  37,  57
@@ -26,37 +26,38 @@ int main() {
 
 	omp_set_num_threads(24); 
 
-	const uint64_t checkCount=pow(2,24); //check up to this many iterations
-	const uint64_t minPeriod=pow(2,23.9)-1; //pass test threshold
+	const uint64_t checkCount=pow(2,16); //check up to this many iterations
+	const uint64_t minPeriod=pow(2,16)-1; //pass test threshold
 	uint64_t totalCandies=0;
 
 	const krand_t minShift=1;
-	const krand_t maxShift=8;
+	const krand_t maxShift=2;
 	const krand_t shiftInc=1;
 
 	const krand_t minMul=1;
 	const krand_t maxMul=100;
-	const krand_t mulInc=1;
+	const krand_t mulInc=4;
 
 	const krand_t minAdd=1;
-	const krand_t maxAdd=100;
+	const krand_t maxAdd=255;
 	const krand_t addInc=1;
 
-	const krand_t stateCount=2; //bytes in random state
+	const krand_t stateCount=KAEL32_BYTES; //bytes in random state
 
 	//randomness statistics
-	const double maxZscore = 100.0; //any single rand test period max zscore passable, test will stop if this is exceeded 
-	const double maxAvgZscore = 10.0; //print only values with lower average zscore than this
-	const double minAvgZscore = 0.0; 
+	const double maxZscore = 4.0; //any single rand test period max zscore passable, test will stop if this is exceeded 
+	const double meanZscore = sqrt(3)/2;
+	const double maxAvgZscore = meanZscore+0.05; //print only values with lower average zscore than this
+	const double minAvgZscore = meanZscore-0.05; 
 	
-	const double randSCount = minPeriod; //one rand test period sample count 
+	const double randSCount = minPeriod/32; //one rand test period sample count 
 
 	const uint64_t firstPeriodCheck = checkCount; //preliminary period check length
 	const uint8_t periodOnly = 0; //checks period up to firstPeriodCheck and skips rest of the tests
 
 	const uint64_t modList[] = {3,7};
 	const uint64_t modCount = sizeof(modList)/sizeof(uint64_t);
-	const uint64_t diffModCount = 16;
+	const uint64_t diffModCount = 256;
 
 	const uint8_t printAll = 0; //print even failed tests
 
@@ -68,7 +69,7 @@ int main() {
 		krand_t ompMaxMul = (maxMul-minMul)/mulInc;
 		krand_t ompMaxAdd = (maxAdd-minAdd)/addInc;
 
-   		#pragma omp parallel for collapse(2) schedule(dynamic)
+		#pragma omp parallel for collapse(2) schedule(dynamic)
 		for(krand_t mul=0; mul<ompMaxMul; mul++){
 			for(krand_t add=0; add<ompMaxAdd; add++){
 
@@ -79,8 +80,8 @@ int main() {
 					.shift 				= shift	 			,
 					.mul 				= newMul			,
 					.add 				= newAdd			,
-					.oper				= kaelRandT_rorr	,
-					.name				="kaelRandT_rorr"
+					.oper				= kaelRandT_lcg	,
+					.name				="kaelRandT_lcg"
 				};
 
 				const rlcg_args mainArgs = (rlcg_args){
