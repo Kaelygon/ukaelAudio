@@ -41,6 +41,14 @@ uint16_t number = 621
 uint8_t threeEights = (uint16_t)(number*3 + 8/2)/8; //=233. Actual: 621*(3/8) = 232.875
 ```
 
+For this reason some fundementals are different like _cmp functions. I decided to shift zero to 128 in all memcmp like functions for easier comparison
+```C
+	k32_cmp(a,b)
+   if a==b, return 128
+   if a>b, return 128+i
+   if a<b, return 128-i
+   where i is nth byte or bit depending on function
+```
 
 Default naming convention is camelCase.
 

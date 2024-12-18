@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include "kaelygon/math/math.h"
 #include "kaelygon/math/k32.h"
@@ -150,54 +151,100 @@ void unit_testOper32(kael32_t *a32, const kael32_t *b32){
 
 
 
-// TODO:
-void unit_32Test(kael32_t *a32, kael32_t *b32){
-	printf("------ u32 by u32 Testing ------\n\n");
-	kael32_t remainder = unit_oper32(a32, b32, '/');
-	char result32Cstr[KAEL32_BYTES*4];
-	k32_getBase10Cstr(result32Cstr, &remainder);
-	printf("remainder: %s",result32Cstr);
-	printf("\n");
 
 
 
-	*a32=(kael32_t){{124,1,8,8}};
-	*b32=(kael32_t){{0,0,0,4}};
-	remainder = unit_oper32(a32, b32, '/');
-	k32_getBase10Cstr(result32Cstr, &remainder);
-	printf("remainder: %s",result32Cstr);
-	printf("\n");
 
+void unit_32DivTesting(){
+	kael32_t kael32a={.s={0,0,1,255}};
+	kael32_t kael32b={.s={0,0,1,3}};
 
+	for(uint32_t i=0; i<20000; i++){
+		k32_u8mad(&kael32a,&kael32a,85,85);
+		k32_u8mad(&kael32a,&kael32a,13,11);
 
-	*a32=(kael32_t){{0,0,7,16}};
-	*b32=(kael32_t){{0,0,0,7}};
-	remainder = unit_oper32(a32, b32, '/');
-	k32_getBase10Cstr(result32Cstr, &remainder);
-	printf("remainder: %s",result32Cstr);
-	printf("\n");
+		uint32_t u32a = k32_toUint32(&kael32a);
+		uint32_t u32b = k32_toUint32(&kael32b);
 
-	printf("\n");
+		uint32_t expectedRes32 = u32a/u32b;
+		uint32_t expectedRemainder = u32a%u32b;
+		
+		kael32_t kaelRes32;
+		kael32_t remainder = k32_div(&kaelRes32, &kael32a, &kael32b);
+		uint32_t convertedRes32 = k32_toUint32(&kaelRes32);
+		uint32_t convRemainder = k32_toUint32(&remainder);
+
+		if(expectedRemainder!=convRemainder){
+			printf("Expected remainder: %u \n", expectedRemainder);
+			printf("Actual remainder: %u \n", convRemainder);
+		}
+
+		if(expectedRes32 != convertedRes32){
+			printf("Expected product: %u / %u = %u\n",u32a, u32b, expectedRes32);
+			printf("Actual product: = %u\n",convertedRes32);
+		}
+
+	}
+
+	return;
 }
+
+
+void kael32_mulTesting(){
+	kael32_t kael32a={.s={0,1,1,0}};
+	kael32_t kael32b={.s={0,1,1,0}};
+
+	for(uint32_t i=0; i<10; i++){
+		k32_u8mad(&kael32a,&kael32a,1,4);
+		k32_u8mad(&kael32b,&kael32b,1,3);
+
+		uint32_t u32a = k32_toUint32(&kael32a);
+		uint32_t u32b = k32_toUint32(&kael32b);
+
+		uint64_t expectedRes64 = (uint64_t)u32a*u32b;
+		uint32_t expectedRes32 = expectedRes64&0xFFFFFFFF;
+		uint64_t expectedHiPart32 = (uint64_t)expectedRes64>>32U;
+		
+		printf("\n---- Base conversion ---\n");
+		unit_oper32(&kael32a, &kael32b, '*');
+		printf("------------------------\n");
+
+		kael32_t kaelRes32;
+		kael32_t hiPart = k32_mul(&kaelRes32, &kael32a, &kael32b);
+		uint32_t convertedRes32 = k32_toUint32(&kaelRes32);
+		uint32_t u32hiPart = k32_toUint32(&hiPart);
+
+
+		if(expectedRes32 != convertedRes32){
+			printf("\n\n---- Discrepency ----\n");
+			printf("expected mult: %u * %u = %u\n",u32a, u32b, expectedRes32);
+			printf("k32 mult: %u\n",convertedRes32);
+			printf("\n");
+			printf("expected hiPart: %u\n", (uint32_t)expectedHiPart32);
+			printf("k32 hiPart: %u\n\n", u32hiPart);
+		}
+
+	}
+
+	return;
+}
+
+
 
 void kael32_unit(){
 
-	kael32_t a32={.s={0,0,0,16}};
-	kael32_t b32={.s={0,0,0,4}};
-	uint8_t b8 = b32.s[KAEL32_BYTES-1]+1;
+	kael32_t a32={.s={0,0,255,255}};
+	kael32_t b32={.s={0,0,0,255}};
+	uint8_t b8 = b32.s[KAEL32_BYTES-1];
 	
 
 	unit_testOper32u8(&a32, b8);
 	unit_testOper32(&a32, &b32);
-	unit_32Test(&a32, &b32);
-
-
- 
+	unit_32DivTesting();
+	kael32_mulTesting();
 
 	printf("kaelString_unit done\n");
 }
-
-
 
 int main(){
 
@@ -205,3 +252,4 @@ int main(){
 
 	return 0;
 }
+

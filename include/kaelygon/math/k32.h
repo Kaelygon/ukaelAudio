@@ -21,19 +21,16 @@ typedef struct{
 	uint8_t s[KAEL32_BYTES]; //Least significant byte last, big endian
 }kael32_t;
 
+#include "kaelygon/math/k32u8.h"
 
 //--- Arithmetic
 
-// k32 by k32
+//--- k32 by k32
 
-void k32_set(kael32_t *dest, const kael32_t *src); //dest = src
+void k32_set(kael32_t *dest, const kael32_t *src);
 
-uint8_t k32_cmp(const kael32_t *a, const kael32_t *b); //memcmp
+uint8_t k32_cmp(const kael32_t *a, const kael32_t *b); // greater>128, equal==128, less<128
 uint8_t k32_cmpByte(const kael32_t *a,const  kael32_t *b);
-
-uint8_t k32_eq(const kael32_t *a,const  kael32_t *b);
-uint8_t k32_u8eq(const kael32_t *a, const uint8_t b);
-kael32_t k32_u8set(const uint8_t b);
 
 kael32_t k32_mul(kael32_t *result, const kael32_t *base, const kael32_t *mul);
 kael32_t k32_mad(kael32_t *result, const kael32_t *base, const kael32_t *mul, const kael32_t *add);
@@ -43,16 +40,6 @@ kael32_t k32_div(kael32_t *result, const kael32_t *base, const kael32_t *div);
 uint8_t k32_add(kael32_t *result, const kael32_t *base, const kael32_t *add);
 uint8_t k32_sub(kael32_t *result, const kael32_t *base, const kael32_t *sub);
 
-// k32 by u8
-
-uint8_t k32_u8mul(kael32_t *result, const kael32_t *base, const uint8_t mul);
-uint8_t k32_u8mad(kael32_t *result, const kael32_t *base, const uint8_t mul, const uint8_t add);
-
-uint8_t k32_u8div(kael32_t *result, const kael32_t *base, const uint8_t div);
-
-uint8_t k32_u8add(kael32_t *result, const kael32_t *base, const uint8_t add);
-uint8_t k32_u8sub(kael32_t *result, const kael32_t *base, const uint8_t sub);
-
 
 //--- Bytewise
 
@@ -60,6 +47,11 @@ void k32_rorl(kael32_t *base, uint8_t n);
 void k32_rorr(kael32_t *base, uint8_t n);
 void k32_shr(kael32_t *base, uint8_t n);
 void k32_shl(kael32_t *base, uint8_t n);
+
+
+//--- Bitwise
+void k32_shlBit(kael32_t *base, uint8_t n);
+void k32_shrBit(kael32_t *base, uint8_t n);
 
 
 //--- C string
@@ -78,3 +70,8 @@ enum KaelRand_const{
 uint8_t k32_rand(kael32_t *krand);
 void k32_seed(kael32_t *krand, char *cstr);
 
+
+// System exclusives that are above 16-bit 
+#if __SIZEOF_POINTER__>=4
+	uint32_t k32_toUint32(const kael32_t *base);
+#endif

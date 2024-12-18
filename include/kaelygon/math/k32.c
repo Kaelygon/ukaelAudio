@@ -14,6 +14,8 @@
 #include "kaelygon/math/k32.h"
 #include "kaelygon/global/kaelMacros.h"
 
+#include "kaelygon/math/k32u8.h"
+
 
 //------ kael32_t by kael32_t functions ------
 
@@ -31,9 +33,9 @@ void k32_set(kael32_t *dest, const kael32_t *src){
 /**
  * @return Returns which nth bytes differs
  * 
- * if equal, return 0
- * elif *a n:th byte is lower, return (>255) 255-n
- * elif *b n:th byte is lower, return (<255) n 
+ * if equal, return 128
+ * elif *a n:th byte is lower, return (<128)
+ * elif *b n:th byte is lower, return (>128) 
  */
 uint8_t k32_cmp(const kael32_t *a,const  kael32_t *b){
 	KAEL_ASSERT(a!=NULL && b!=NULL, "Arg is NULL");
@@ -41,19 +43,9 @@ uint8_t k32_cmp(const kael32_t *a,const  kael32_t *b){
 		if( a->s[i] == b->s[i] ){
 			continue;
 		}
-		return a->s[i] > b->s[i] ? i+1 : (uint8_t)(-i-1);
+		return a->s[i] > b->s[i] ? 128U+1+i : 128U-1-i; 
 	}
-	return 0;
-}
-
-
-/**
- *  @return 1 if kael32_t are equal
- */
-uint8_t k32_eq(const kael32_t *a,const  kael32_t *b){
-	KAEL_ASSERT(a!=NULL && b!=NULL, "Arg is NULL");
-
-	return !k32_cmp(a,b);
+	return 128;
 }
 
 
@@ -65,11 +57,11 @@ uint8_t k32_eq(const kael32_t *a,const  kael32_t *b){
 uint8_t k32_add(kael32_t *result, const kael32_t *base, const kael32_t *add){
 	KAEL_ASSERT(result!=NULL && base!=NULL && add!=NULL, "Arg is NULL");
 
-	uint8_t carry = 0;
-	for(uint8_t i=KAEL32_BYTES-1; i!=UINT8_MAX; --i){
-		uint8_t sum = base->s[i] + add->s[i] + carry;
-		result->s[i] = sum;
-		carry = (sum < base->s[i]) ? 1 : 0; //carry if overflown
+	uint16_t carry = 0;
+	for(uint8_t i=KAEL32_BYTES-1; i!=0xFF; --i){
+		carry+= base->s[i] + add->s[i];
+		result->s[i] = carry;
+		carry = (carry>>8); //carry if overflown
 	}
 	return carry;
 }
@@ -83,57 +75,55 @@ uint8_t k32_add(kael32_t *result, const kael32_t *base, const kael32_t *add){
 uint8_t k32_sub(kael32_t *result, const kael32_t *base, const kael32_t *sub){
 	KAEL_ASSERT(result!=NULL && base!=NULL && sub!=NULL, "Arg is NULL");
 
-	uint8_t borrow = 0;
-	for(uint8_t i=KAEL32_BYTES-1; i!=UINT8_MAX; --i){
-		uint8_t diff = base->s[i] - sub->s[i] - borrow;
-		result->s[i] = diff;
-		borrow = (diff > base->s[i]) ? 1 : 0; //borrow if underflown
+	uint16_t borrow = 0;
+	for(uint8_t i=KAEL32_BYTES-1; i!=0xFF; --i){
+		borrow = base->s[i] - sub->s[i] - borrow;
+		result->s[i] = borrow;
+		borrow = (borrow > base->s[i]) ? 1 : 0; //borrow if underflown
 	}
 	return borrow;
 }
 
 /**
- * @brief kael32_t multiply add TODO: better algorithm
+ * @brief kael32_t multiply add
  * 
  * @return Overflown part
  */
 kael32_t k32_mad(kael32_t *result, const kael32_t *base, const kael32_t *mul, const kael32_t *add){
 	KAEL_ASSERT(result!=NULL && base!=NULL && mul!=NULL && add!=NULL, "Arg is NULL");
-	
-	kael32_t lowPart = {0};
-	kael32_t hiPart = {0};
 
-	for(uint8_t i = KAEL32_BYTES - 1; i != UINT8_MAX; --i){
+	kael32_t hiPart = {0};
+	*result = k32_u8set(0); //result is used as the low part
+	
+	for(uint8_t i = KAEL32_BYTES - 1; i != 0xFF; --i){
 		kael32_t partialProduct = {0};
-		uint8_t carry = add->s[i];
+		uint16_t carry = add->s[i];
+		uint16_t multiplier = mul->s[i];
+		if(multiplier==0 && carry==0){continue;}
 
 		//Multiply the current byte of mul with each byte of base
-		for(uint8_t j = KAEL32_BYTES - 1; j != UINT8_MAX; --j){
-				uint16_t product = (uint16_t)mul->s[i] * base->s[j] + carry;
+		for(uint8_t j = KAEL32_BYTES - 1; j != 0xFF; --j){
+				uint16_t product = multiplier * base->s[j] + carry;
+				if(product==0){continue;}
+				
+				carry = (product >> 8); //next digit carry
 
 				//Choose partialProduct digit
-				int16_t resultIndex = i + j - (KAEL32_BYTES - 1);
-				if(resultIndex >= 0 && resultIndex < KAEL32_BYTES){
-					uint8_t oldValue = partialProduct.s[resultIndex];
-					partialProduct.s[resultIndex] += product & 0xFF;
-
-					//Carry
-					if(partialProduct.s[resultIndex] < oldValue){
-						carry = (product >> 8) + 1;
-					}else{
-						carry = (product >> 8);
-					}
-				}else{
-					carry += (product >> 8);
+				uint8_t resultIndex = i + j;
+				if(resultIndex<2*KAEL32_BYTES){
+					partialProduct.s[resultIndex-(KAEL32_BYTES-1)]+= product;
+				}else 
+				if(resultIndex<KAEL32_BYTES){
+					partialProduct.s[resultIndex]+= product;
 				}
 		}
-
 		//Add the partialProduct to the lowPart or hiPart
-		uint8_t lowCarry = k32_add(&lowPart, &lowPart, &partialProduct);
-		k32_u8add(&hiPart, &hiPart, lowCarry);
+		uint8_t lowCarry = k32_add(result, result, &partialProduct);
+		if(lowCarry || carry){
+			k32_u8add(&hiPart, &hiPart, lowCarry+carry);
+		}
 	}
 
-	k32_set(result, &lowPart);
 	return hiPart; 
 }
 
@@ -144,34 +134,104 @@ kael32_t k32_mad(kael32_t *result, const kael32_t *base, const kael32_t *mul, co
  */
 kael32_t k32_mul(kael32_t *result, const kael32_t *base, const kael32_t *mul){
 	KAEL_ASSERT(result!=NULL && base!=NULL, "Arg is NULL");
-
 	return k32_mad(result, base, mul, &(kael32_t){0});
 }
 
-
+/**
+ * @brief Count leading zero bytes
+ * 
+ */
+uint8_t k32_clz(kael32_t *base){
+	for(uint8_t i=0; i<KAEL32_BYTES;i++){
+		if(base->s[i]!=0){
+			return i;
+		}
+	}
+	return KAEL32_BYTES;
+}
 
 /**
- * @brief Compute kael32_t reciprocal
- * TODO:
+ * @brief kael32_t Shift bitwise right 
+ * 
  */
-void _k32_reciprocal(kael32_t *result, const kael32_t *div) {
-	KAEL_ASSERT(div!=0, "Division by 0");
-	return;
+void k32_shrBit(kael32_t *base, uint8_t n){
+	KAEL_ASSERT(base!=NULL, "Arg is NULL");
+
+	uint8_t carry=0;
+	for(uint8_t i=0; i<KAEL32_BYTES; i++){
+		uint8_t newCarry = base->s[i] << (CHAR_BIT - n);
+		base->s[i] >>= n;
+		base->s[i] |= carry;
+		carry = newCarry;
+	}
+}
+
+/**
+ * @brief kael32_t Shift bitwise left 
+ * 
+ */
+void k32_shlBit(kael32_t *base, uint8_t n){
+    KAEL_ASSERT(base != NULL, "Arg is NULL");
+
+    uint8_t carry = 0;
+    for (uint8_t i = KAEL32_BYTES-1; i!=0xFF; --i){
+        uint8_t newCarry = base->s[i] >> (CHAR_BIT - n);
+        base->s[i] <<= n;
+        base->s[i] |= carry;
+        carry = newCarry;
+    }
 }
 
 
 /**
- * @brief kael32_t divide 
- * TODO:
+ * @brief kael32_t division by binary search 
+ * 
+ * 
  */
 kael32_t k32_div(kael32_t *result, const kael32_t *base, const kael32_t *div){
 	KAEL_ASSERT(result!=NULL && base!=NULL, "Arg is NULL");
-	KAEL_ASSERT(k32_u8eq(result,0), "Division by 0");
-	kael32_t remainder = {0};
+	KAEL_ASSERT( k32_cmp(div,&(kael32_t){0})!=128 , "Division by 0");
+
+	kael32_t guessProduct;
+	kael32_t lower={0};
+	kael32_t upper;
+	k32_set(&upper,base); //base is the upper bound; div by 1
+
+	*result=k32_u8set(0); //Reuse result as X in X*div=base
+	uint8_t cmp; //compare result*div = base; cmp>128 bigger-, cmp<128 smaller than X
+
+	while( k32_cmp(&lower, &upper)<=128 ){  
+		k32_add(result, &lower, &upper); //result = lower + upper. result is the division guess
+		k32_shrBit(result,1); //divide by 2	by 1-bit shift right 
+
+		kael32_t hiPart = k32_mul(&guessProduct, result, div); // Get current product and compare to base
+
+		if( k32_cmp(&hiPart, &(kael32_t){0})>128 ){
+			cmp=129; //was overflown
+		}else{
+			cmp = k32_cmp(&guessProduct, base); 
+		}
+
+		// if product is bigger than should, reduce resul
+		if(cmp>128){ // result is bigger than X
+			k32_u8sub(&upper, result, 1);
+		}else if(cmp<128){ // result is smaller than X
+			k32_u8add(&lower, result, 1);
+		}else{
+			return (kael32_t){0}; //remainder 0
+		}
+	}
+		
+	if (cmp > 128) { // result was bigger than base; correct value
+		k32_u8sub(result, result, 1);
+		k32_mul(&guessProduct, result, div);
+	}
+
+	kael32_t remainder={0};
+	k32_sub(&remainder, base, &guessProduct); 
 
 	return remainder;
 }
-
 
 
 
@@ -206,7 +266,7 @@ void k32_rorl(kael32_t *base, uint8_t n){
  */
 void k32_shr(kael32_t *base, uint8_t n){
 	KAEL_ASSERT(base!=NULL, "Arg is NULL");
-	for (uint8_t i = KAEL32_BYTES-1; i!=UINT8_MAX; --i) {
+	for (uint8_t i = KAEL32_BYTES-1; i!=0xFF; --i) {
 		uint8_t index = i-n;
 		base->s[i] = index<KAEL32_BYTES ? base->s[index] : 0;
 	}
@@ -223,102 +283,6 @@ void k32_shl(kael32_t *base, uint8_t n){
 		base->s[i] = index<KAEL32_BYTES ? base->s[index] : 0;
 	}
 }
-
-
-//------- k32 by u8 functions ------
-
-/**
- *  @return 1 if kael32_t are equal
- */
-uint8_t k32_u8eq(const kael32_t *a, const uint8_t b){
-	KAEL_ASSERT(a!=NULL, "Arg is NULL");
-
-	return k32_eq(a,&(kael32_t){{0,0,0,b}});
-}
-
-kael32_t k32_u8set(const uint8_t b){
-	return (kael32_t){{0,0,0,b}};
-}
-
-/**
- * @brief kael32_t by u8 division
- * 
- * @return remainder
- */
-uint8_t k32_u8div(kael32_t *result, const kael32_t *base, const uint8_t div) {
-	KAEL_ASSERT(result!=NULL && base!=NULL, "Arg is NULL");
-	KAEL_ASSERT(div!=0, "Division by 0");
-
-	uint16_t remainder = 0; // Use 16 bits for intermediate calculations
-	for (uint8_t i=0; i<KAEL32_BYTES; i++) { // Start from MSB
-		uint16_t current = (remainder << 8) | base->s[i];
-		result->s[i] = current / div; 
-		remainder = current % div;
-	}
-	return remainder;
-}
-
-/**
- * @brief kael32_t subtract unsigned char
- * 
- * @return if underflown, return 1; else 0
- */
-uint8_t k32_u8sub(kael32_t *result, const kael32_t *base, const uint8_t sub){
-	KAEL_ASSERT(result!=NULL && base!=NULL, "Arg is NULL");
-
-	uint8_t borrow = sub;
-	for(uint8_t i=KAEL32_BYTES-1; i!=UINT8_MAX; --i){
-		uint8_t diff = base->s[i] - borrow;
-		result->s[i] = diff;
-		if(diff > base->s[i]){ //if underflown, borrow
-			borrow = 1;
-		}else{
-			borrow = 0;
-			break;
-		}
-	}
-	return borrow;
-}
-
-/**
- * @brief kael32_t multiply and add by unsigned char
- * 
- * @return Most significant carry
- */
-uint8_t k32_u8mad(kael32_t *result, const kael32_t *base, const uint8_t mul, const uint8_t addend) {
-	KAEL_ASSERT(result!=NULL && base!=NULL, "Arg is NULL");
-	
-	uint8_t carry = addend;
-	for(uint8_t i=KAEL32_BYTES-1; i!=UINT8_MAX; --i){
-		uint16_t product = (uint16_t)base->s[i] * mul + carry;
-		result->s[i] = product;
-		carry = product>>8;
-	}
-	return carry;
-}
-
-/**
- * @brief kael32_t multiply by unsigned char
- * 
- * @return Most significant carry
- */
-uint8_t k32_u8mul(kael32_t *result, const kael32_t *base, const uint8_t mul) {
-	KAEL_ASSERT(result!=NULL && base!=NULL, "Arg is NULL");
-	uint8_t carry = k32_u8mad(result, base, mul, 0);
-	return carry;
-}
-
-/**
- * @brief kael32_t add unsigned char
- * 
- * @return Most significant carry
- */
-uint8_t k32_u8add(kael32_t *result, const kael32_t *base, const uint8_t addend){
-	KAEL_ASSERT(result!=NULL && base!=NULL, "Arg is NULL");
-	uint8_t carry = k32_u8mad(result, base, 1, addend);
-	return carry;
-}
-
 
 
 
@@ -352,7 +316,7 @@ void k32_getBase10Cstr(char* cstr, const kael32_t *base) {
 	do{
 		uint8_t remainder = k32_u8div(&bufNum, &bufNum, 10);
 		cstr[pos++] = '0' + remainder;
-	}while ( !k32_u8eq(&bufNum,0) );
+	}while ( k32_cmp(&bufNum,&(kael32_t){0})!=128 );
 
 	cstr[pos] = '\0';
 	_k32_reverseCstr(cstr,pos);
@@ -365,14 +329,14 @@ void k32_getBase10Cstr(char* cstr, const kael32_t *base) {
 void k32_getBase256Cstr(char* cstr, const kael32_t *base){
 	if ( NULL_CHECK(cstr) || NULL_CHECK(base) ){return;}
 
-	if( k32_u8eq(base,0) ){ //if 0
+	if( k32_cmp(base,&(kael32_t){0})==128 ){ //if 0
 		cstr[0]='0';
 		cstr[1]='\0';
 		return;
 	}
 
 	uint8_t pos = 0;
-	for(uint8_t i=KAEL32_BYTES-1; i!=UINT8_MAX; --i){
+	for(uint8_t i=KAEL32_BYTES-1; i!=0xFF; --i){
 		uint8_t b256Digit = base->s[i];
 		if(i!=KAEL32_BYTES-1){
 			cstr[pos++]= ' '; //base256 separator
@@ -411,3 +375,16 @@ void k32_seed(kael32_t *base, char *cstr){
 	if(cstr==NULL){return;} //Valid use of NULL
 	kaelRand_hash( cstr, base->s, KAEL32_BYTES );
 }
+
+#if __SIZEOF_POINTER__>=4
+
+	uint32_t k32_toUint32(const kael32_t *base) {
+		uint32_t u32=0;
+		for(uint8_t i=0; i<KAEL32_BYTES; i++){
+			uint8_t shift = (KAEL32_BYTES*8-(i+1)*8);
+			u32|=(uint32_t)base->s[i]<<shift;
+		} 
+		return u32;
+	}
+
+#endif
