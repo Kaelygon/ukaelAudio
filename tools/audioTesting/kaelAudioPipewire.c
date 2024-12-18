@@ -35,7 +35,7 @@ struct data {
 	Max error = ~1.8%. Identical to sine at 0,64,128,192,255
 */
 
-uint8_t kaelAudio_sine(uint8_t n){
+uint8_t kaelAudio_sine2(uint8_t n){
 
 		uint8_t q = n>>6; //quarter phase 0b00=1st 0b01=2nd 0b10=3rd 0b11=4th   
 		n = n&0b00111111; //repeat quarters
@@ -49,8 +49,8 @@ uint8_t kaelAudio_sine(uint8_t n){
 	
 		return o;
 }
-/*
-// Sine approximation function (adjust as needed)
+
+//Sine approximation function
 static inline uint8_t kaelAudio_sine(uint8_t phase) {	
 	uint8_t secondHalf = phase & 0b10000000;
 	phase <<= 1;
@@ -58,7 +58,7 @@ static inline uint8_t kaelAudio_sine(uint8_t phase) {
 	phase = (uint8_t)((buf * buf) >> 9);
 	phase = secondHalf ? phase : ~phase;
 	return phase;
-}*/
+}
 
 /* our data processing function is in general:
  *

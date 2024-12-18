@@ -54,7 +54,7 @@ void kaelTerminal_unit() {
 		if(kaelStr_getEnd(&keyStr)){
 			if( kaelStr_compareCstr(&keyStr,KEY_SHIFT_Q)==0 ){kaelTui_setQuitFlag(&tui,1);}
 			
-			kaelStr_appendCstr(&charBuffer[0],"k{");
+			kaelStr_appendCstr(&charBuffer[0],"key{");
 			for(uint16_t i=0;i<kaelStr_getEnd(&keyStr);i++){
 				kaelStr_setCstr(&charBuffer[2],"%u,");
 				if(i==kaelStr_getEnd(&keyStr)-1){
@@ -66,8 +66,8 @@ void kaelTerminal_unit() {
 			kaelStr_clear(&keyStr);
 			kaelStr_appendCstr(&charBuffer[0],"} ");
 
-			char frameStr[8];
-			sprintf(frameStr, "f%u ", (uint16_t)kaelClock_getFrame(&clock)); 
+			char frameStr[12];
+			sprintf(frameStr, "frame%u ", (uint16_t)kaelClock_getFrame(&clock)); 
 			kaelStr_appendCstr(&charBuffer[0], frameStr);
 			KAEL_ERROR_NOTE(kaelStr_getCharPtr(&charBuffer[0]));
 			kaelStr_clear(&charBuffer[0]);
@@ -94,6 +94,7 @@ void kaelTerminal_unit() {
 
 	printf("\n");
 	printf("Time: %f\n",(double)(progEndTime-progStartTime)/CLOCK_SPEED_HZ); //debug
+	printf("\n");
 	
 
 	printf("kaelTerminal_unit Done\n");	

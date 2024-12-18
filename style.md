@@ -8,16 +8,17 @@ Restrictions
 
 Folder structure
 ```
-
+/ukaelAudio
+./.obsidian/        = Obsidian is stubborn to keep its configs here
 ./.vscode/          = Code OSS configuration that run bash script for each build type
 ./assets/           = Files that are read by a program go here
 ./build/            = CMake builds executables here
 ./CMakeFiles/       = CMake cache
+./doxygen/          = Doxygen HTML doc
 ./generated/        = Program generated files go here
-./include/foo       = Third party libraries
 ./include/kaelygon/ = Each related thing is on their own folders. kael- prefix is stripped out and related header (foo.h) and implementation (foo.c) files are in same folder
 ./src/              = Programs with main function
-./tools/            = Testing programs and their headers
+./tools/            = Testing programs and their headers in ./tools/*/include
 ```
 
 
@@ -26,18 +27,54 @@ Tab = 3 spaces
 ```C
 	if(){
 		while(){
-			kaelFoo_stuff();
+			kaelFoo_stuffToDo();
 		}
 	}
 ```
 
 
-Variables, file names,  camel
+Only types allowed are uint8_t and uint16_t
+Few functions like KaelClock have to use 64-bit numbers to obtain ```__rdtsc()``` as I am still developing on 64-bit x86 system. These are just arbitrary limitations but it has been fun to work around problems with 16-bit uint arithmetic.
 ```C
-
+//Round up *(3/8)
+uint16_t number = 621
+uint8_t threeEights = (uint16_t)(number*3 + 8/2)/8; //=233. Actual: 621*(3/8) = 232.875
 ```
 
-Doxygen comments to generate doc. Comments in implementation files.
+
+Default naming convention is camelCase.
+
+```C  
+KaelStr iAmAString;
+kaelStr_alloc(&iAmAString,11);
+```
+
+
+Global variables, macros, enumerators are UPPER_SNAKE_CASE
+Functions and variable names that are limited to the implementation file are marked with underscore ```_```
+Arguments never have underscore and are in written camelCase
+```C
+#ifndef KAEL_DEBUG
+	#define KAEL_DEBUG 1
+#endif
+
+typedef enum {
+	KAEL_SUCCESS = 0,
+}Kael_infoCode;
+
+//global data, used only during debugging
+extern KaelDebug *_GLOBAL_DEBUG;
+```
+
+
+Pseudo namespace
+```C
+typedef struct KaelFoo KaelFoo;
+KaelFoo *kaelFoo_function(const char *someArgPtr);
+```
+
+
+Doxygen comments to generate doc. Comments in implementation files. Many functions are still missing these.
 ```C
 /**
  * @file foo.c
@@ -59,40 +96,37 @@ Doxygen comments to generate doc. Comments in implementation files.
  * @param cstr
  * @return KAEL_SUCCESS, otherwise error 
 */
-//Comment for IDE hover texts
 uint16_t kaelFoo_doStuff(void *stuff, char* cstr ){}
 
 ```
 
 
-Global variables, macros, enumerators are UPPER_SNAKE_CASE
-```C
-#ifndef KAEL_DEBUG
-	#define KAEL_DEBUG 1
-#endif
-
-typedef enum {
-	KAEL_SUCCESS = 0,
-}Kael_infoCode;
-
-extern KaelStr *GLOBAL_DEBUG; //Errors
-```
-
-
-Pseudo namespace
-```C
-typedef struct KaelFoo KaelFoo;
-KaelFoo *kaelFoo_function(const char *someArgPtr);
-```
-
 Global macro for NULL_CHECK(), this is to print out variable names instead of their addresses. 
-In debug mode these output is stored in ```GLOBAL_DEBUG->infoStr[KAELDEBUG_DEBUG_STR]```
+In debug mode these output is stored in ```GLOBAL_DEBUG->infoStr[KAELDEBUG_DEBUG_STR]``` in kaelMacro.h
 or index KAELDEBUG_NOTE_STR for notes
 ```C
 	if (NULL_CHECK(foo)) { return; }
 	if (NULL_CHECK(foo,"This is an additional note")) { return; }
 	KAEL_ERROR_NOTE("kaelTree_get out of bounds"); 
 ```
+
+
+Additionally there's assert for Debug build which is disabled in Release build.
+NULL_CHECK is preferred for functions that aren't in tight loops. Ideally null check the variables before entering a tight loop as there are many things that still can go wrong.
+Use KAEL_ASSERT during debug and mark clearly no NULL_CHECK is done in Release build.  
+```C
+/**
+ * @brief base 256 rand
+ * 
+ * @warning No NULL_CHECK
+ */
+uint8_t k32_rand(kael32_t *seed){
+	KAEL_ASSERT(seed!=NULL, "Arg in NULL");
+	uint8_t carry = k32_u8mad(seed, seed, KAELRAND_MUL, KAELRAND_ADD);
+	return seed->s[3] + carry;
+}
+```
+
 
 If type is stored in heap, it has alloc and free functions
 ```C
@@ -129,7 +163,8 @@ uint16_t kaelFoo_getStuff(KaelFoo *foo){
 }
 ```
 
-Unit tests are located in ./tools/unitTesting
+
+Unit tests are located in ./tools/unitTest
 ```C
 #include "kaelygon/foo/foo.h"
 
@@ -138,7 +173,8 @@ void kaelFoo_unit(){
 }
 ```
 
-Error codes are declared in global numerator.
+
+Error codes are declared in global enumerator.
 ```C
 typedef enum {
 	 //General
@@ -149,8 +185,6 @@ typedef enum {
 	KAEL_ERR_FULL			= 131,
 
 	 //KaelStr
-	KAELSTR_WARN_TRUNCATED	= 127,
-	KAEL_ERR_ARG			= 129,
 	KAEL_ERR_MEM			= 130
 }Kael_infoCode;
 

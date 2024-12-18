@@ -23,12 +23,11 @@ uint8_t kaelStr_appendCstr(KaelStr *dest, const char *src);
 uint8_t kaelStr_appendKstr(KaelStr *dest, const KaelStr *src);
 
 uint8_t kaelStr_pushCstr(KaelStr *dest, const char *src);
-//uint8_t kaelStr_insertCstr(KaelStr *dest, const char *src, uint8_t direction);
 
 uint8_t kaelStr_toCstr(char *dest, const KaelStr *src);
 
 uint16_t kaelStr_compareCstr(const KaelStr *kstr1, const void *key2);
-//uint16_t kaelStr_compareKstr(const KaelStr *kstr1, const KaelStr *kstr2);
+uint16_t kaelStr_compareKstr(const KaelStr *kstr1, const KaelStr *kstr2);
 
 uint8_t kaelStr_setCstr(KaelStr *kstr, const char *src);
 uint8_t kaelStr_setKstr(KaelStr *kstr1, const KaelStr *kstr2);
@@ -43,4 +42,5 @@ uint16_t kaelStr_getEnd(const KaelStr *kstr);
 uint8_t kaelStr_fillCstr(KaelStr *dest, const char *src);
 uint8_t kaelStr_print(const KaelStr *kstr);
 
+void kaelStr_reverseKstr(KaelStr *kstr);
 

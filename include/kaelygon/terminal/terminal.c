@@ -18,7 +18,7 @@
 #include "kaelygon/book/book.h"
 
 uint8_t kaelTui_alloc(KaelTui *tui){
-	if (NULL_CHECK(tui)) { return KAEL_ERR_ARG; }
+	if (NULL_CHECK(tui)) { return KAEL_ERR_NULL; }
 	memset(tui,0,sizeof(KaelTui));
 
 	tui->canvasSize[0]=120;

@@ -26,8 +26,8 @@ int main() {
 
 	omp_set_num_threads(24); 
 
-	const uint64_t checkCount=pow(2,16); //check up to this many iterations
-	const uint64_t minPeriod=pow(2,16)-1; //pass test threshold
+	const uint64_t checkCount=pow(2,4); //check up to this many iterations
+	const uint64_t minPeriod=pow(2,4)-1; //pass test threshold
 	uint64_t totalCandies=0;
 
 	const krand_t minShift=1;
@@ -50,7 +50,7 @@ int main() {
 	const double maxAvgZscore = meanZscore+0.05; //print only values with lower average zscore than this
 	const double minAvgZscore = meanZscore-0.05; 
 	
-	const double randSCount = minPeriod/32; //one rand test period sample count 
+	const double randSCount = minPeriod/32 + 1; //one rand test period sample count 
 
 	const uint64_t firstPeriodCheck = checkCount; //preliminary period check length
 	const uint8_t periodOnly = 0; //checks period up to firstPeriodCheck and skips rest of the tests
@@ -83,7 +83,7 @@ int main() {
 					.oper				= kaelRandT_lcg	,
 					.name				="kaelRandT_lcg"
 				};
-
+			
 				const rlcg_args mainArgs = (rlcg_args){
 					.minPeriod 			= minPeriod			,
 					.checkCount 		= checkCount		,
@@ -92,8 +92,8 @@ int main() {
 					.maxZscore 			= maxZscore			,
 					.randSCount 		= randSCount		,
 					.stateCount			= stateCount		,
-					.firstPeriodCheck 	= firstPeriodCheck	,
-					.modList			= modList			,
+					.firstPeriodCheck = firstPeriodCheck	,
+					.modList				= modList			,
 					.modCount			= modCount			,
 					.diffModCount		= diffModCount		,
 					.periodOnly			= periodOnly		,

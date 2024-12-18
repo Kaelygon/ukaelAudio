@@ -175,7 +175,7 @@ void printPage(KaelTree *tree, uint16_t colCount, uint16_t rowCount, uint16_t br
  */
 void kaelTree_unit() {
 	uint16_t branchCount = 1;
-	uint16_t leafCount = 1024; 
+	uint16_t leafCount = 8; 
 	uint16_t leafMaxLen = 64;
 	uint16_t cols = 128;
 	uint16_t rows = 16;

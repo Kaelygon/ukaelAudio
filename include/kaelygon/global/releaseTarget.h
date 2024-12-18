@@ -23,3 +23,5 @@
 
 //appends errors to KAEL_DEBUG_STR, returns 1 if ptr is NULL, otherwise 0
 #define NULL_CHECK(...) KAEL_MACRO_ARGS2(__VA_ARGS__, NULL_CHECK_ARGS2, NULL_CHECK_ARGS1)(__VA_ARGS__)
+
+#define KAEL_ERROR_NOTE(dummy) ((void)0)

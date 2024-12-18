@@ -10,6 +10,7 @@
 
 #include <stdio.h>
 #include <stdint.h>
+#include <limits.h>
 #include "kaelygon/global/kaelMacros.h"
 
 #define KAEL32_BITS 32U
@@ -28,8 +29,11 @@ typedef struct{
 void k32_set(kael32_t *dest, const kael32_t *src); //dest = src
 
 uint8_t k32_cmp(const kael32_t *a, const kael32_t *b); //memcmp
+uint8_t k32_cmpByte(const kael32_t *a,const  kael32_t *b);
+
 uint8_t k32_eq(const kael32_t *a,const  kael32_t *b);
 uint8_t k32_u8eq(const kael32_t *a, const uint8_t b);
+kael32_t k32_u8set(const uint8_t b);
 
 kael32_t k32_mul(kael32_t *result, const kael32_t *base, const kael32_t *mul);
 kael32_t k32_mad(kael32_t *result, const kael32_t *base, const kael32_t *mul, const kael32_t *add);

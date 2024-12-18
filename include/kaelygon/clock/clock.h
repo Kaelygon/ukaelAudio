@@ -1,7 +1,10 @@
 //./include/kaelygon/clock/clock.h
 #pragma once
 
-#define CLOCK_SPEED_HZ 3700000000U // 36999640471U
+
+#ifndef CLOCK_SPEED_HZ
+	#define CLOCK_SPEED_HZ 32768U
+#endif
 
 typedef uint64_t ktime_t; //test system rdstc is still 64-bit
 #define KTIME_MAX UINT64_MAX

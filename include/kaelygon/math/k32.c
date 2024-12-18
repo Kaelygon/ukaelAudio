@@ -15,6 +15,7 @@
 #include "kaelygon/global/kaelMacros.h"
 
 
+//------ kael32_t by kael32_t functions ------
 
 /**
  * @brief kael32_t dest = src
@@ -26,20 +27,25 @@ void k32_set(kael32_t *dest, const kael32_t *src){
 }
 
 
-//-- kael32_t by kael32_t functions
 
 /**
- * @return Returns which bytes differ
+ * @return Returns which nth bytes differs
  * 
  * if equal, return 0
- * elif *a n:th byte is lower, return 255-n
- * elif *b n:th byte is lower, return n
+ * elif *a n:th byte is lower, return (>255) 255-n
+ * elif *b n:th byte is lower, return (<255) n 
  */
 uint8_t k32_cmp(const kael32_t *a,const  kael32_t *b){
 	KAEL_ASSERT(a!=NULL && b!=NULL, "Arg is NULL");
-
-	return memcmp(a,b,KAEL32_BYTES);
+	for(uint8_t i=0; i<KAEL32_BYTES; i++){
+		if( a->s[i] == b->s[i] ){
+			continue;
+		}
+		return a->s[i] > b->s[i] ? i+1 : (uint8_t)(-i-1);
+	}
+	return 0;
 }
+
 
 /**
  *  @return 1 if kael32_t are equal
@@ -48,15 +54,6 @@ uint8_t k32_eq(const kael32_t *a,const  kael32_t *b){
 	KAEL_ASSERT(a!=NULL && b!=NULL, "Arg is NULL");
 
 	return !k32_cmp(a,b);
-}
-
-/**
- *  @return 1 if kael32_t are equal
- */
-uint8_t k32_u8eq(const kael32_t *a, const uint8_t b){
-	KAEL_ASSERT(a!=NULL, "Arg is NULL");
-
-	return k32_eq(a,&(kael32_t){{0,0,0,b}});
 }
 
 
@@ -68,34 +65,35 @@ uint8_t k32_u8eq(const kael32_t *a, const uint8_t b){
 uint8_t k32_add(kael32_t *result, const kael32_t *base, const kael32_t *add){
 	KAEL_ASSERT(result!=NULL && base!=NULL && add!=NULL, "Arg is NULL");
 
-    uint8_t carry = 0;
-    for(uint8_t i=KAEL32_BYTES-1; i!=UINT8_MAX; --i){
-        uint8_t sum = base->s[i] + add->s[i] + carry;
-        result->s[i] = sum;
-		  carry = (sum < base->s[i]) ? 1 : 0; //carry if overflown
-    }
-    return carry;
+	uint8_t carry = 0;
+	for(uint8_t i=KAEL32_BYTES-1; i!=UINT8_MAX; --i){
+		uint8_t sum = base->s[i] + add->s[i] + carry;
+		result->s[i] = sum;
+		carry = (sum < base->s[i]) ? 1 : 0; //carry if overflown
+	}
+	return carry;
 }
 
+
 /**
- * @brief kael32_t subtract
+ * @brief kael32_t subtract old
  * 
- * @return if underflown, return 1; else 0
- */
+* @return if underflown, return 1; else 0
+*/
 uint8_t k32_sub(kael32_t *result, const kael32_t *base, const kael32_t *sub){
 	KAEL_ASSERT(result!=NULL && base!=NULL && sub!=NULL, "Arg is NULL");
 
-    uint8_t borrow = 0;
-    for(uint8_t i=KAEL32_BYTES-1; i!=UINT8_MAX; --i){
-        uint8_t diff = base->s[i] - sub->s[i] - borrow;
-        result->s[i] = diff;
-        borrow = (diff > base->s[i]) ? 1 : 0; //borrow if underflown
-    }
-    return borrow;
+	uint8_t borrow = 0;
+	for(uint8_t i=KAEL32_BYTES-1; i!=UINT8_MAX; --i){
+		uint8_t diff = base->s[i] - sub->s[i] - borrow;
+		result->s[i] = diff;
+		borrow = (diff > base->s[i]) ? 1 : 0; //borrow if underflown
+	}
+	return borrow;
 }
 
 /**
- * @brief kael32_t multiply add
+ * @brief kael32_t multiply add TODO: better algorithm
  * 
  * @return Overflown part
  */
@@ -113,13 +111,13 @@ kael32_t k32_mad(kael32_t *result, const kael32_t *base, const kael32_t *mul, co
 		for(uint8_t j = KAEL32_BYTES - 1; j != UINT8_MAX; --j){
 				uint16_t product = (uint16_t)mul->s[i] * base->s[j] + carry;
 
-				//Determine where this product contributes to partialProduct
+				//Choose partialProduct digit
 				int16_t resultIndex = i + j - (KAEL32_BYTES - 1);
 				if(resultIndex >= 0 && resultIndex < KAEL32_BYTES){
 					uint8_t oldValue = partialProduct.s[resultIndex];
 					partialProduct.s[resultIndex] += product & 0xFF;
 
-					//Handle carry in the addition
+					//Carry
 					if(partialProduct.s[resultIndex] < oldValue){
 						carry = (product >> 8) + 1;
 					}else{
@@ -166,9 +164,9 @@ void _k32_reciprocal(kael32_t *result, const kael32_t *div) {
  * @brief kael32_t divide 
  * TODO:
  */
-kael32_t k32_div(kael32_t *result, const kael32_t *base, const kael32_t *div) {
+kael32_t k32_div(kael32_t *result, const kael32_t *base, const kael32_t *div){
 	KAEL_ASSERT(result!=NULL && base!=NULL, "Arg is NULL");
-	KAEL_ASSERT(div!=0, "Division by 0");
+	KAEL_ASSERT(k32_u8eq(result,0), "Division by 0");
 	kael32_t remainder = {0};
 
 	return remainder;
@@ -177,24 +175,69 @@ kael32_t k32_div(kael32_t *result, const kael32_t *base, const kael32_t *div) {
 
 
 
-
-//--- k32 by u8 functions ---
+//------- Bytewise functions ------
 
 /**
- * @brief kael32_t multiply by unsigned char
- * 
- * @return Most significant carry
+ * @brief Rotate right by n bytes
  */
-uint8_t k32_u8mul(kael32_t *result, const kael32_t *base, const uint8_t mul) {
-	KAEL_ASSERT(result!=NULL && base!=NULL, "Arg is NULL");
+void k32_rorr(kael32_t *base, uint8_t n){
+	KAEL_ASSERT(base!=NULL, "Arg is NULL");
+	KAEL_ASSERT(n <= KAEL32_BYTES, "Rotate right amount exceeds width");
 
-	uint8_t carry = 0;
-	for(uint8_t i=KAEL32_BYTES-1; i!=UINT8_MAX; --i){
-		uint16_t product = (uint16_t)base->s[i] * mul + carry;
-		result->s[i] = product;
-		carry = product>>8;
+	for (uint8_t i = 0; i < KAEL32_BYTES-1; i++) {
+		uint8_t newIndex = (i+n)%KAEL32_BYTES;
+		uint8_t buf = base->s[i];
+		base->s[i] = base->s[newIndex];
+		base->s[newIndex] = buf;
 	}
-	return carry;
+}
+
+/**
+ * @brief Rotate left by n bytes
+ */
+void k32_rorl(kael32_t *base, uint8_t n){
+	KAEL_ASSERT(base!=NULL, "Arg is NULL");
+	n = kaelMath_sub(KAEL32_BYTES, n);
+	k32_rorr(base,n);
+}
+
+/**
+ * @brief Shift right by n bytes
+ */
+void k32_shr(kael32_t *base, uint8_t n){
+	KAEL_ASSERT(base!=NULL, "Arg is NULL");
+	for (uint8_t i = KAEL32_BYTES-1; i!=UINT8_MAX; --i) {
+		uint8_t index = i-n;
+		base->s[i] = index<KAEL32_BYTES ? base->s[index] : 0;
+	}
+}
+
+
+/**
+ * @brief Shift left by n bytes
+ */
+void k32_shl(kael32_t *base, uint8_t n){
+	KAEL_ASSERT(base!=NULL, "Arg is NULL");
+	for (uint8_t i = 0; i<KAEL32_BYTES; i++) {
+		uint8_t index = i+n;
+		base->s[i] = index<KAEL32_BYTES ? base->s[index] : 0;
+	}
+}
+
+
+//------- k32 by u8 functions ------
+
+/**
+ *  @return 1 if kael32_t are equal
+ */
+uint8_t k32_u8eq(const kael32_t *a, const uint8_t b){
+	KAEL_ASSERT(a!=NULL, "Arg is NULL");
+
+	return k32_eq(a,&(kael32_t){{0,0,0,b}});
+}
+
+kael32_t k32_u8set(const uint8_t b){
+	return (kael32_t){{0,0,0,b}};
 }
 
 /**
@@ -203,39 +246,16 @@ uint8_t k32_u8mul(kael32_t *result, const kael32_t *base, const uint8_t mul) {
  * @return remainder
  */
 uint8_t k32_u8div(kael32_t *result, const kael32_t *base, const uint8_t div) {
-	KAEL_ASSERT(result!=NULL && base!=NULL, "Arg is NULL")
-	;
-	KAEL_ASSERT(div!=0, "Division by 0");
-    uint16_t remainder = 0; // Use 16 bits for intermediate calculations
-    for (uint8_t i=0; i<KAEL32_BYTES; i++) { // Start from MSB
-        uint16_t current = (remainder << 8) | base->s[i];
-        result->s[i] = current / div; 
-        remainder = current % div;
-    }
-    return remainder;
-}
-
-/**
- * @brief kael32_t add unsigned char
- * 
- * @return Most significant carry
- */
-uint8_t k32_u8add(kael32_t *result, const kael32_t *base, const uint8_t addend){
 	KAEL_ASSERT(result!=NULL && base!=NULL, "Arg is NULL");
+	KAEL_ASSERT(div!=0, "Division by 0");
 
-	uint8_t carry = addend;
-	for(uint8_t i=KAEL32_BYTES-1; i!=UINT8_MAX; --i){
-		uint8_t oldValue = base->s[i];
-		uint8_t sum = oldValue + carry;
-		result->s[i] = sum;
-		if(sum < oldValue){ //if overflown, carry
-			carry = 1;
-		}else{
-			carry = 0;
-			break;
-		}
-	};
-	return carry;
+	uint16_t remainder = 0; // Use 16 bits for intermediate calculations
+	for (uint8_t i=0; i<KAEL32_BYTES; i++) { // Start from MSB
+		uint16_t current = (remainder << 8) | base->s[i];
+		result->s[i] = current / div; 
+		remainder = current % div;
+	}
+	return remainder;
 }
 
 /**
@@ -268,12 +288,34 @@ uint8_t k32_u8sub(kael32_t *result, const kael32_t *base, const uint8_t sub){
 uint8_t k32_u8mad(kael32_t *result, const kael32_t *base, const uint8_t mul, const uint8_t addend) {
 	KAEL_ASSERT(result!=NULL && base!=NULL, "Arg is NULL");
 	
-	uint8_t carry = 0;
+	uint8_t carry = addend;
 	for(uint8_t i=KAEL32_BYTES-1; i!=UINT8_MAX; --i){
-		uint16_t product = (uint16_t)base->s[i] * mul + carry + addend;
+		uint16_t product = (uint16_t)base->s[i] * mul + carry;
 		result->s[i] = product;
 		carry = product>>8;
 	}
+	return carry;
+}
+
+/**
+ * @brief kael32_t multiply by unsigned char
+ * 
+ * @return Most significant carry
+ */
+uint8_t k32_u8mul(kael32_t *result, const kael32_t *base, const uint8_t mul) {
+	KAEL_ASSERT(result!=NULL && base!=NULL, "Arg is NULL");
+	uint8_t carry = k32_u8mad(result, base, mul, 0);
+	return carry;
+}
+
+/**
+ * @brief kael32_t add unsigned char
+ * 
+ * @return Most significant carry
+ */
+uint8_t k32_u8add(kael32_t *result, const kael32_t *base, const uint8_t addend){
+	KAEL_ASSERT(result!=NULL && base!=NULL, "Arg is NULL");
+	uint8_t carry = k32_u8mad(result, base, 1, addend);
 	return carry;
 }
 
@@ -281,63 +323,7 @@ uint8_t k32_u8mad(kael32_t *result, const kael32_t *base, const uint8_t mul, con
 
 
 
-//--- Bytewise functions ---
-
-/**
- * @brief Rotate right by n bytes
- */
-void k32_rorr(kael32_t *base, uint8_t n){
-	KAEL_ASSERT(base!=NULL, "Arg is NULL");
-	KAEL_ASSERT(n <= KAEL32_BYTES, "Rotate right amount exceeds width");
-
-	for (uint8_t i = 0; i < KAEL32_BYTES-1; i++) {
-		uint8_t newIndex = (i+n)%KAEL32_BYTES;
-		uint8_t buf = base->s[i];
-		base->s[i] = base->s[newIndex];
-		base->s[newIndex] = buf;
-	}
-}
-
-/**
- * @brief Rotate left by n bytes
- */
-void k32_rorl(kael32_t *base, uint8_t n){
-	KAEL_ASSERT(n <= KAEL32_BYTES, "Rotate left amount exceeds width");
-
-	n = kaelMath_sub(KAEL32_BYTES, n);
-	k32_rorr(base,n);
-}
-
-/**
- * @brief Shift right by n bytes
- */
-void k32_shr(kael32_t *base, uint8_t n){
-	KAEL_ASSERT(base!=NULL, "Arg is NULL");
-	KAEL_ASSERT(n <= KAEL32_BYTES, "Right shift amount exceeds width");
-
-	uint8_t count = KAEL32_BYTES-n;
-	memmove(base->s+n, base->s, count);
-}
-
-
-/**
- * @brief Shift left by n bytes
- */
-void k32_shl(kael32_t *base, uint8_t n){
-	KAEL_ASSERT(base!=NULL, "Arg is NULL");
-	KAEL_ASSERT(n <= KAEL32_BYTES, "Left shift amount exceeds width");
-
-	uint8_t count = KAEL32_BYTES-n;
-	memmove(base->s, base->s+n, count);
-	memset(base->s+count, 0, n);
-}
-
-
-
-
-
-
-//--- C string functions ---
+//------- C string functions ------
 
 /**
  * @brief Reverse C string
@@ -405,9 +391,13 @@ void k32_getBase256Cstr(char* cstr, const kael32_t *base){
 
 
 
-//-- Rand functions
+//------ Rand functions ------
 
-//base 256 rand
+/**
+ * @brief base 256 rand
+ * 
+ * @warning No NULL_CHECK
+ */
 uint8_t k32_rand(kael32_t *seed){
 	KAEL_ASSERT(seed!=NULL, "Arg in NULL");
 	uint8_t carry = k32_u8mad(seed, seed, KAELRAND_MUL, KAELRAND_ADD);

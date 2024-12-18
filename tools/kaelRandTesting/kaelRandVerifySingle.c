@@ -20,7 +20,7 @@ Verify single unit
  	
 int main() {
 
-	//omp_set_num_threads(1); 
+	omp_set_num_threads(0); 
 	
 	const uint64_t checkCount=pow(2,24); //check up to this many iterations
 	const uint64_t minPeriod=pow(2,24)-1; //pass test threshold
@@ -28,11 +28,11 @@ int main() {
 	const krand_t stateCount=KAEL32_BYTES; //bytes in random state
 
 	//randomness statistics
-	const double maxZscore = 70.0; //any single rand test period max zscore passable, test will stop if this is exceeded 
-	const double maxAvgZscore = 70.0; //print only values with lower average zscore than this
+	const double maxZscore = 10.0; //any single rand test period max zscore passable, test will stop if this is exceeded 
+	const double maxAvgZscore = 10.0; //print only values with lower average zscore than this
 	const double minAvgZscore = 0; 
 	
-	const double randSCount = checkCount; //one rand test period sample count 
+	const double randSCount = checkCount/2; //one rand test period sample count 
 
 	const uint64_t firstPeriodCheck = checkCount; //preliminary period check length
 	const uint8_t periodOnly = 0; //checks period up to firstPeriodCheck and skips rest of the tests
@@ -44,7 +44,7 @@ int main() {
 	const uint8_t printDiffMod = 1;
 	const uint8_t printAll = 1;
 
-	const PrngCoeff coeff = (PrngCoeff) {  1,  85, 85, kaelRandT_lcg, "kaelRandT_lcg"}; //full period
+	const PrngCoeff coeff = (PrngCoeff) {  1,  89, 57, kaelRandT_lcg, "kaelRandT_lcg"}; //full period
 
     const rlcg_args mainArgs = (rlcg_args){
         .minPeriod 			= minPeriod			,

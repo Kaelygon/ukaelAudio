@@ -117,7 +117,7 @@ uint8_t kaelTree_pop(KaelTree *tree){
 	if( newAlloc <= scaleAlloc ){ //shrink if below threshold
 		newAlloc = tree->capacity/GROWTH_NUMER*GROWTH_DENOM;
 		void *newData = realloc(tree->data, newAlloc);
-		if( NULL_CHECK(newData,"popRealloc") ){ return KAEL_ERR_MEM; }
+		if( NULL_CHECK(newData,"popRealloc") ){ return KAEL_ERR_ALLOC; }
 		tree->capacity=newAlloc;
 		tree->data=newData;
 	}
@@ -139,7 +139,7 @@ uint8_t kaelTree_resize(KaelTree *tree, uint16_t length){
 	//We rather keep ->data null till it has non zero allocation
 	if(newAlloc!=0){ 
 		void *newData = realloc(tree->data, newAlloc);
-		if( NULL_CHECK(newData) ){ return KAEL_ERR_MEM; }
+		if( NULL_CHECK(newData) ){ return KAEL_ERR_ALLOC; }
 
 		//Zero newly resized portion if any
 		if (newAlloc > tree->capacity) {

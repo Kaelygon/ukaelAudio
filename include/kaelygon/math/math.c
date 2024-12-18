@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <stdint.h>
+#include <limits.h>
 #include "kaelygon/global/kaelMacros.h"
 
 typedef uint16_t kmath_t;
