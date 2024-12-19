@@ -1,10 +1,9 @@
-//./include/kaelygon/math/math.h
-//Strictly unsigned arithmetic
-
-#include <stdio.h>
-#include <stdint.h>
-#include <limits.h>
-#include "kaelygon/global/kaelMacros.h"
+/**
+ * @file math.c
+ * 
+ * @brief Header, Strictly unsigned arithmetic
+ */
+#include "kaelygon/math/math.h"
 
 typedef uint16_t kmath_t;
 static const kmath_t SIGN_MASK = 1U<<(sizeof(kmath_t)*CHAR_BIT-1);

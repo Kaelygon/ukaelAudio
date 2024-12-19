@@ -3,14 +3,7 @@
  * 
  * @brief Null terminated general purpose safer string
 */
-
-#include <stdlib.h>
-#include <string.h>
-#include <stdint.h>
-
-#include "kaelygon/global/kaelMacros.h"
 #include "kaelygon/string/string.h"
-#include "kaelygon/math/math.h" //kaelMath_*
 
 uint8_t kaelStr_alloc(KaelStr *kstr, uint16_t bytes) {
 	if(NULL_CHECK(kstr))	{
@@ -90,6 +83,12 @@ uint8_t kaelStr_pushCstr(KaelStr *dest, const char *src){
 	uint16_t newEnd=dest->end+srcSize;
 	kaelStr_setEnd(dest,newEnd); //sets null byte
 	return KAEL_SUCCESS;
+}
+
+uint8_t kaelStr_pushKstr(KaelStr *dest, KaelStr *src){
+	char* srcPtr = src->s;
+	uint8_t code = kaelStr_pushCstr(dest, srcPtr);
+	return code;
 }
 
 //Convert to C style string assuming *dest has the space for it
@@ -204,7 +203,7 @@ uint16_t kaelStr_getEnd(const KaelStr *kstr){
 uint8_t kaelStr_print(const KaelStr *kstr){
 	if(NULL_CHECK(kstr)){
 		return KAEL_ERR_NULL;}
-	printf(kstr->s);
+	fwrite(kstr->s, sizeof(char), kstr->end, stdout); //+1 null terminate
 	return KAEL_SUCCESS;
 }
 

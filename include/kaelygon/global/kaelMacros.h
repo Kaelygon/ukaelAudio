@@ -6,22 +6,23 @@
 */
 #pragma once
 
+#include <stdlib.h>
+#include <stdint.h>
 
-//CMake should generate KAEL_DEBUG 1
+extern uint16_t AUDIO_BUFFER_SIZE;
+extern uint16_t AUDIO_SAMPLE_RATE;
+
+//CMake should generate this macro 'KAEL_DEBUG 1'
 #ifndef KAEL_DEBUG
 	#define KAEL_DEBUG 1
 #endif
 
-//--- Shared globals ---
-
-#include "kaelygon/global/anyTarget.h"
-
-//--- Debug and release exclusive ---
+//------ Debug and Release target exclusives ------
 
 #if KAEL_DEBUG==1
-	#include "kaelygon/global/debugTarget.h"
+	#include "kaelygon/global/target/debugTarget.h"
+
 #else 
-	#include "kaelygon/global/releaseTarget.h"
+	#include "kaelygon/global/target/releaseTarget.h"
+
 #endif
-
-

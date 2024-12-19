@@ -13,7 +13,7 @@ Goals:
 	 - Sample rate: 32768 hz
 	 - 8 tracks
 	 - Simple stereo by volume adjust, will see how viable other mixing is
-	 - 16-bit Samples are sent to audio generator in 128 sample buffer
+	 - 16-bit Samples are sent to audio generator in 256 sample buffer
 	 - While audio card is playing the buffer, a new buffer is being generated
 
 

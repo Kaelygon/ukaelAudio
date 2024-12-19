@@ -5,18 +5,20 @@
  * 
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
 
 #include "kaelygon/global/kaelMacros.h"
 
-// --- Debug implementation ---
+
+// ------ Shared implementation ------
+
+//Extern variables. Later these should be part of opaque type Audio "class"
+uint16_t AUDIO_BUFFER_SIZE = 256U; 
+uint16_t AUDIO_SAMPLE_RATE = 32768U;
+
+
+
+// ------ Debug implementation ------
 #if KAEL_DEBUG==1
-
-#include "kaelygon/string/string.h"
-
-
 
 //Debug constants
 
@@ -115,7 +117,7 @@ uint8_t kaelDebug_printInfoStr(){
 
 
 #else
-// --- Release implementation ---
+// --- Release specific implementation ---
 //If any
 
 #endif

@@ -3,18 +3,13 @@
  * 
  * @brief Emulating 32-bit unsigned integer using 4 unsigned char
  * 
+ * @note Unlikely I keep this implementation. Current division and multiplication are far too slow
+ * 
  * Most significant byte is first in array
  */
 
-#include <stdio.h>
-#include <stdint.h>
-#include <string.h>
-
-#include "kaelygon/math/math.h"
-#include "kaelygon/math/k32.h"
-#include "kaelygon/global/kaelMacros.h"
-
 #include "kaelygon/math/k32u8.h"
+#include "kaelygon/math/k32.h"
 
 
 //------ kael32_t by kael32_t functions ------

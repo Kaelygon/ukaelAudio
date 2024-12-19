@@ -4,16 +4,19 @@
 #pragma once
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <stdint.h>
 
+#include "kaelygon/math/math.h"
+#include "kaelygon/global/kaelMacros.h"
 
-struct KaelStr {
+typedef struct KaelStr {
 	char *s;
 	uint16_t size; //allocated bytes
 	uint16_t end; //null byte index
-};
+}KaelStr;
 
-typedef struct KaelStr KaelStr;
 
 uint8_t kaelStr_alloc(KaelStr *kstr, uint16_t bytes);
 void kaelStr_free(KaelStr *kstr);
@@ -23,6 +26,7 @@ uint8_t kaelStr_appendCstr(KaelStr *dest, const char *src);
 uint8_t kaelStr_appendKstr(KaelStr *dest, const KaelStr *src);
 
 uint8_t kaelStr_pushCstr(KaelStr *dest, const char *src);
+uint8_t kaelStr_pushKstr(KaelStr *dest, KaelStr *src);
 
 uint8_t kaelStr_toCstr(char *dest, const KaelStr *src);
 

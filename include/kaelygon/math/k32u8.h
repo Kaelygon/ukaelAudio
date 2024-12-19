@@ -1,5 +1,5 @@
 /**
- * @file k32.h
+ * @file k32u8.h
  * 
  * @brief kael32_t k32 by unsigned char functions
  * 
@@ -10,8 +10,8 @@
 
 #include <stdio.h>
 #include <stdint.h>
-#include "kaelygon/global/kaelMacros.h"
-
+#include "kaelygon/global/kaelMacros.h" //globals
+#include "kaelygon/math/k32.h" //Header of kael32_t implementation
 
 //--- k32 by u8
 

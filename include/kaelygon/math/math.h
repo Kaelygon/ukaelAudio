@@ -1,9 +1,14 @@
-//./include/kaelygon/math/math.h
-//Strictly unsigned arithmetic
+/**
+ * @file math.h
+ * 
+ * @brief Implementation, Strictly unsigned arithmetic
+ */
 #pragma once
 
-#include <stdio.h>
 #include <stdint.h>
+#include <limits.h>
+#include "kaelygon/global/kaelMacros.h"
+
 typedef uint16_t kmath_t;
 
 kmath_t kaelMath_min(kmath_t a, kmath_t b);

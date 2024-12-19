@@ -1,8 +1,12 @@
-#include <stdio.h>
-#include <stdint.h>
-#include "kaelygon/global/kaelMacros.h"
+/**
+ * @file k32u8.c
+ * 
+ * @brief Implementation file kael32_t k32 by unsigned char functions
+ * 
+ * Most significant byte is first in array
+ */
 
-#include "kaelygon/math/k32.h"
+#include "kaelygon/math/k32u8.h"
 
 //------- k32 by u8 functions ------
 

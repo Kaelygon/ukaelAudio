@@ -11,6 +11,9 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <limits.h>
+#include <string.h>
+
+#include "kaelygon/math/math.h"
 #include "kaelygon/global/kaelMacros.h"
 
 #define KAEL32_BITS 32U

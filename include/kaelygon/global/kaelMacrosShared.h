@@ -1,9 +1,11 @@
 /**
  * @file kaelDefines.h
  * 
- * @brief Global macros that may be defined in other libraries
+ * @brief Header, Global macros that may be defined in other libraries shared between all build targets
  * 
  */
+
+#pragma once
 
 #define CLOCK_SPEED_HZ 3700000000U 
 

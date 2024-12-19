@@ -6,8 +6,15 @@
 
 #pragma once
 
+#include "kaelygon/global/kaelMacrosShared.h"
+
 #include <assert.h>
+#include <stdio.h>
+
 #include "kaelygon/string/string.h"
+
+struct KaelStr; //won't work without forward declaration
+typedef struct KaelStr KaelStr; 
 
 //Select 1 or 2 argument macro
 #define KAEL_MACRO_ARGS2(_1, _2, NAME, ...) NAME
