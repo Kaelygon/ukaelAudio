@@ -47,39 +47,38 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${BUILD_DIR})
 
 list(APPEND INCLUDE_DIR ${DEFAULT_INCLUDE_DIR}) #default include always included
 
-if(NOT DEFINED SRC_DIR) #Directory to the .c file with main()
+if(NOT SRC_DIR) #Directory to the .c file with main()
 	set(SRC_DIR ${DEFAULT_SRC_DIR})
 	message("${Gray}Using default SRC_DIR ${SRC_DIR}")
 endif()
 
 ### Interpret flags
 
-if(NOT DEFINED PROG) 
-	set(BUILD_WHAT "ALL") #If no program specified, then build all 
-	message("${Gray}No program specified")
-endif()
-
-if(NOT DEFINED BUILD_WHAT) #Directory to the .c file with main()
+if(NOT BUILD_WHAT) #Directory to the .c file with main()
 	set(BUILD_WHAT ${DEFAULT_BUILD_WHAT})
 	message("${Gray}Using default BUILD_WHAT ${BUILD_WHAT}")
 endif()
 
-if(NOT DEFINED BUILD_TYPE) #Directory to the .c file with main()
+if(NOT BUILD_TYPE) #Directory to the .c file with main()
 	set(BUILD_TYPE ${DEFAULT_BUILD_TYPE})
 	message("${Gray}Using default BUILD_TYPE ${DEFAULT_BUILD_TYPE}")
 endif()
 
-#capitalize
-if(DEFINED BUILD_WHAT)
-	string(TOUPPER ${BUILD_WHAT} BUILD_WHAT)
-endif()
-if(DEFINED BUILD_TYPE)
-	string(TOUPPER ${BUILD_TYPE} BUILD_TYPE)
+if(NOT PROG) 
+set(BUILD_WHAT "ALL") #If no program specified, then build all 
 endif()
 
-if(NOT DEFINED OMP_ENABLED)
+if(NOT OMP_ENABLED)
 	set(OMP_ENABLED ${DEFAULT_OMP_ENABLED}) # OMP has some leak bug, so better disable it for malloc testing 
 	message("${Gray}Using default OMP_ENABLED ${OMP_ENABLED}")
+endif()
+
+#capitalize
+if(BUILD_WHAT)
+	string(TOUPPER ${BUILD_WHAT} BUILD_WHAT)
+endif()
+if(BUILD_TYPE)
+	string(TOUPPER ${BUILD_TYPE} BUILD_TYPE)
 endif()
 
 
@@ -103,7 +102,7 @@ if(OMP_ENABLED)
 endif()
 
 # Set optimization or debugger flags
-#set(CMAKE_BUILD_TYPE Debug)
+set(CMAKE_BUILD_TYPE Debug)
 set(RELEASE_FLAGS "-Os" "-flto" "-g" "-Wall"  "-Wextra" "-pedantic") # RELEASE
 set(DEBUG_FLAGS "-g" "-Wall" "-Wextra" "-pedantic" "-D_GLIBCXX_DEBUG" "-fstack-usage" "-fno-omit-frame-pointer" "-O0") # DEBUG
 set(ASAN_FLAGS "${DEBUG_FLAGS}" ) # ASAN same as debug flags
@@ -117,11 +116,11 @@ if(BUILD_TYPE STREQUAL "ASAN")
 
 elseif(BUILD_TYPE STREQUAL "RELEASE") 
 	set(FLAGS ${RELEASE_FLAGS})
-#	set(CMAKE_BUILD_TYPE ${BUILD_TYPE})
+	set(CMAKE_BUILD_TYPE ${BUILD_TYPE})
 
 else() #Debug
 	set(FLAGS ${DEBUG_FLAGS})
-#	set(CMAKE_BUILD_TYPE ${BUILD_TYPE})
+	set(CMAKE_BUILD_TYPE ${BUILD_TYPE})
 endif()
 
 
@@ -132,7 +131,7 @@ endif()
 
 #Check if main file
 function(f_is_main_file _file _result)
-	file(STRINGS "${_file}" _file_contents REGEX "[ \t]+main[ \t]*\\(.*\\)")
+	file(STRINGS "${_file}" _file_contents REGEX "int[ \t]+main[ \t]*\\(.*\\)")
 	if(_file_contents)
 		set(${_result} TRUE PARENT_SCOPE)
 	else()
@@ -182,9 +181,6 @@ function(f_build_active_source _mainBaseName _sourceList)
 	#Link exectuable to the file with main()
 	add_executable(${_progName} ${_mainFile}) 
 
-	#Inject debug macro
-	f_inject_target_macro("${_progName}" "BUILD_TYPE STREQUAL DEBUG" "KAEL_DEBUG=1") 
-
 	message("${Green}Building program ${Blue}${_progName}")
 
 	#set build directory path
@@ -210,13 +206,16 @@ function(f_build_active_source _mainBaseName _sourceList)
 	target_include_directories(${_progName} PRIVATE ${_includeDir}) 
 	### Link implementation files
 	target_sources(${_progName} PRIVATE ${_sourceList}) 
+
+	#Inject debug macro
+	f_inject_target_macro("${_progName}" "BUILD_TYPE STREQUAL DEBUG" "KAEL_DEBUG=1") 
 endfunction()
 
 ### BUILD_WHAT = ALL
 # Function to build all source files in directory
 function(f_build_all_sources _includeSources)
 	# Recursively find all .c main files from src directory
-	file(GLOB_RECURSE _mainFileList ${SRC_DIR}/*.c) 
+	file(GLOB _mainFileList ${SRC_DIR}/*.c) 
 
 	if(PROG) #Add active if any
 		list(APPEND ${SRC_DIR}/${PROG}.c)
