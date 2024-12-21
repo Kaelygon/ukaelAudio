@@ -9,6 +9,7 @@
 #pragma once
 
 #include <stdint.h>
+#include "kaelygon/global/kaelMacros.h"
 
 
 
@@ -25,7 +26,7 @@
 #define TARGET_CLOCK_HZ AUDIO_SAMPLE_RATE
 
 // How many times faster actual clock is than the target clock. 1:1 = no scaling
-#define CLOCK_TARGET_RATIO (CLOCK_SPEED_HZ / TARGET_CLOCK_HZ) 
+#define CLOCK_TARGET_RATIO ((CLOCK_SPEED_HZ+TARGET_CLOCK_HZ/2) / TARGET_CLOCK_HZ) //integer round
 
 
 
@@ -42,35 +43,15 @@
 
 
 
-//------ RTC ------
-
-#ifdef __unix__ 
-	//You may need to add permission to read rtc, sudo setfacl -m u:campus:r /dev/rtc
-	#define CLOCK_USING_RTC
-#else
-	//TBD if it's even viable to port this mess to windows
-#endif
-
-
-
 //------ SHARED TYPES ------
 
-// Since APIC Timer requires root we use __rdtsc
-#if __SIZEOF_POINTER__>=8
-	typedef uint64_t ktime_t;
-	#define KTIME_MAX UINT64_MAX
-#elif __SIZEOF_POINTER__>=4
-	typedef uint32_t ktime_t;
-	#define KTIME_MAX UINT32_MAX
-#else
-	typedef uint16_t ktime_t;
-	#define KTIME_MAX UINT16_MAX
-#endif
+typedef uint16_t ktime_t;
+#define KTIME_MAX UINT16_MAX
 
 typedef struct{
-	ktime_t frameStartTime; // time (units) when last frame was rendered
-	uint16_t frameHigh;
-	uint16_t frameLow;
-	uint16_t frameRate; // text display refresh rate (Hz)
-	ktime_t cyclesPerFrame; // how many units betweeen updates
+	ktime_t bufferStartTick; // Tick count at beginning of current cycle
+	uint16_t tickHigh; // Long time
+	uint16_t tickLow; // Short time
+	uint16_t tickRate; // Ticks in second. Buffer fill rate per second
+	ktime_t ticksPerBuffer; // Ticks between buffer
 }KaelClock;

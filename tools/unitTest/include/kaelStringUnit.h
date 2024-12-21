@@ -46,7 +46,7 @@ void kaelString_unit(){
 
    uint8_t isDifferentKstr = kaelStr_compareKstr(&kstr, &kstr2);
    uint8_t isDifferentCstr = kaelStr_compareCstr(&kstr, "I was a\n");
-   printf("0 means equal.\n Compare: kstr and kstr2: %u\n Compare kstr and cstr: %u\n", isDifferentKstr, isDifferentCstr );
+   printf("128 means equal.\n Compare: kstr and kstr2: %u\n Compare kstr and cstr: %u\n", isDifferentKstr, isDifferentCstr );
 
    char* kstrPtr  = kaelStr_getCharPtr(&kstr );
    char* kstrPtr2 = kaelStr_getCharPtr(&kstr2);

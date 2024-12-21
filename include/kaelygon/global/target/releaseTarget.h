@@ -18,8 +18,8 @@
 
 
 //Null checks should still act like normally
-#define NULL_CHECK_ARGS1(ptr) ( ((ptr) == NULL) ? 1 : 0 )
-#define NULL_CHECK_ARGS2(ptr, dummy) ( ((ptr) == NULL) ? 1 : 0 )
+#define NULL_CHECK_ARGS1(ptr) ((ptr)==NULL)
+#define NULL_CHECK_ARGS2(ptr, dummy) ((ptr)==NULL)
 
 //appends errors to KAEL_DEBUG_STR, returns 1 if ptr is NULL, otherwise 0
 #define NULL_CHECK(...) KAEL_MACRO_ARGS2(__VA_ARGS__, NULL_CHECK_ARGS2, NULL_CHECK_ARGS1)(__VA_ARGS__)

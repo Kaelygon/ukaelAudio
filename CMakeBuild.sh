@@ -8,8 +8,10 @@ PROG="${4:-''}" #Base name of .c file if using ACTIVE.
 USE_OMP="${5:-0}" 
 CONFIG=./CMakeLists.txt
 
-cmd="cmake ${CONFIG} -DBUILD_WHAT=${BUILD_WHAT} -DBUILD_TYPE=${BUILD_TYPE} -DSRC_DIR=${SRC_DIR} -DPROG=${PROG} -DOMP_ENABLED=${USE_OMP}"
+cmd="time cmake ${CONFIG} -DBUILD_WHAT=${BUILD_WHAT} -DBUILD_TYPE=${BUILD_TYPE} -DSRC_DIR=${SRC_DIR} -DPROG=${PROG} -DOMP_ENABLED=${USE_OMP}"
 echo "$cmd"
 eval "$cmd"
 
-make #VERBOSE=1
+cmd="time make"
+echo "$cmd"
+eval "$cmd"

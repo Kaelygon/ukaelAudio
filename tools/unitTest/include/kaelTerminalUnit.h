@@ -21,6 +21,12 @@
 #include "kaelygon/terminal/keyID.h" //KEY_ definitions as byte string
 
 
+#include <time.h>
+
+//un-using namespace std;
+clock_t std_clock() {
+    return clock();
+}
 
 void kaelTerminal_unit() {
 
@@ -29,8 +35,9 @@ void kaelTerminal_unit() {
 	KaelTui tui;
 	kaelTui_alloc(&tui);
 
-	KaelClock clock;
-	kaelClock_init(&clock);
+	KaelStr printBuffer;
+	kaelStr_alloc(&printBuffer,128);
+	kaelStr_setCstr(&printBuffer,"Hello world!");
 
 	KaelStr keyStr;
 	kaelStr_alloc(&keyStr,8);
@@ -43,16 +50,22 @@ void kaelTerminal_unit() {
 		charBufPtr[i]=kaelStr_getCharPtr(&charBuffer[i]);
 	}
 
-	uint64_t progStartTime=__rdtsc(); //debug to verify clock
+	KaelClock clock;
+	kaelClock_init(&clock);
+
+	double targetTimeRatio = 1.0; //debug to verify clock
+	uint16_t testTickCount = (uint16_t)(targetTimeRatio*((double)clock.tickRate));
+	clock_t progStartTime = std_clock(); 
+
 	while (!kaelTui_getQuitFlag(&tui)) {
-		if(kaelClock_getFrame(&clock) == 16){ //run for 16 frames
-			kaelStr_appendCstr(&keyStr,(char*)KEY_SHIFT_Q); //Inject quit key
+		if(kaelClock_getTick(&clock) >= testTickCount){ 
+			break;
 		}
 
 		kaelTui_getKeyPressStr(&keyStr);
 		
 		if(kaelStr_getEnd(&keyStr)){
-			if( kaelStr_compareCstr(&keyStr,KEY_SHIFT_Q)==0 ){kaelTui_setQuitFlag(&tui,1);}
+			if( kaelStr_compareCstr(&keyStr,KEY_SHIFT_Q)==128 ){kaelTui_setQuitFlag(&tui,1);}
 			
 			kaelStr_appendCstr(&charBuffer[0],"key{");
 			for(uint16_t i=0;i<kaelStr_getEnd(&keyStr);i++){
@@ -66,22 +79,30 @@ void kaelTerminal_unit() {
 			kaelStr_clear(&keyStr);
 			kaelStr_appendCstr(&charBuffer[0],"} ");
 
-			char frameStr[12];
-			sprintf(frameStr, "frame%u ", (uint16_t)kaelClock_getFrame(&clock)); 
-			kaelStr_appendCstr(&charBuffer[0], frameStr);
-			KAEL_ERROR_NOTE(kaelStr_getCharPtr(&charBuffer[0]));
-			kaelStr_clear(&charBuffer[0]);
+			char tickStr[12];
+			sprintf(tickStr, "Tick %u:", (uint16_t)kaelClock_getTickHigh(&clock)); 
+			kaelStr_appendCstr(&charBuffer[0], tickStr);
+			sprintf(tickStr, "%u ", (uint16_t)kaelClock_getTick(&clock)); 
+			kaelStr_appendCstr(&charBuffer[0], tickStr);
+
+         kaelStr_pushKstr(&printBuffer,&charBuffer[0]);
+
+         kaelStr_clear(&charBuffer[0]);
 			kaelStr_clear(&charBuffer[1]);
 		}
 
-		kaelClock_sync(&clock); // sleep till next frame
 
 		kaelTui_clearTerm();
 
-		fflush(stdout);
-	}
-	uint64_t progEndTime=__rdtsc(); //debug 
+      kaelStr_print(&printBuffer);
 
+		fflush(stdout);
+
+		kaelClock_sync(&clock); // sleep till next tick
+	}
+	clock_t progEndTime=std_clock(); //debug 
+
+	kaelStr_free(&printBuffer);
 	kaelStr_free(&keyStr);
 	for(uint8_t i=0;i<charBufCount;i++){
 		kaelStr_free(&charBuffer[i]);
@@ -93,9 +114,21 @@ void kaelTerminal_unit() {
 	kaelTui_rawmode(0);
 
 	printf("\n");
-	printf("Time: %f\n",(double)(progEndTime-progStartTime)/CLOCK_SPEED_HZ); //debug
+	double resultTimeRatio = (double)(progEndTime-progStartTime)/CLOCKS_PER_SEC;
+	printf("Time: %.8f\n",resultTimeRatio); //debug
+	double deltaRatioAbs = targetTimeRatio > resultTimeRatio ? targetTimeRatio - resultTimeRatio : resultTimeRatio- targetTimeRatio;
+
+	printf("%.4f sample discrepency. %.4f seconds\n",deltaRatioAbs*(double)AUDIO_SAMPLE_RATE, deltaRatioAbs*targetTimeRatio);
+	if( deltaRatioAbs > 1.0/clock.tickRate){ // +1 buffer lost
+		printf("Did you set cpu clock speed correctly when using __rdtsc?\n");
+	}
+
 	printf("\n");
 	
+
+	printf("AUDIO_SAMPLE_RATE %u\n",AUDIO_SAMPLE_RATE);
+	printf("CLOCK_SPEED_HZ %u\n",CLOCK_SPEED_HZ);
+	printf("CLOCK_TARGET_RATIO %u\n",CLOCK_TARGET_RATIO);
 
 	printf("kaelTerminal_unit Done\n");	
 }

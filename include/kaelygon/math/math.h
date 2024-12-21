@@ -27,5 +27,5 @@ uint8_t kaelMath_u8rorr(uint8_t num, uint8_t shift);
 uint8_t kaelMath_log10(kmath_t num);
 
 
-void kaelRand_hash(char* cstr, uint8_t *numArr, uint8_t arrLen);
+void kaelRand_hash(const char* cstr, uint8_t *numArr, uint8_t arrLen);
 uint16_t kaelRand_u16lcg(uint16_t seed);

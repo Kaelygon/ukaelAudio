@@ -11,10 +11,9 @@
 #pragma once
 
 #include <stdint.h>
-
 #include "kaelygon/math/math.h"
-#include "kaelygon/global/kaelMacros.h"
 
+#include "kaelygon/global/kaelMacros.h"
 #include "kaelygon/clock/clockShared.h"
 
 //Use 
@@ -26,4 +25,5 @@ ktime_t kaelClock_time();
 void kaelClock_sleep(ktime_t cycles);
 void kaelClock_init(KaelClock *clock);
 ktime_t kaelClock_sync(KaelClock *clock);
-ktime_t kaelClock_getFrame(const KaelClock *clock);
+ktime_t kaelClock_getTick(const KaelClock *clock);
+ktime_t kaelClock_getTickHigh(const KaelClock *clock);

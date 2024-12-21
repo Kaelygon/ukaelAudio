@@ -64,6 +64,10 @@ kaelStr_alloc(&iAmAString,11);
 ```
 
 
+Global variables and macros are found in include/kaelygon/global. kaelMacros*.h is the only exception with kael- prefix. 
+It contains debug macros and few constants like clock speed. These should be later stored in some other opaque type or loaded from memory.
+
+
 Global variables, macros, enumerators are UPPER_SNAKE_CASE
 Functions and variable names that are limited to the implementation file are marked with underscore ```_```
 Arguments never have underscore and are in written camelCase
@@ -77,7 +81,7 @@ typedef enum {
 }Kael_infoCode;
 
 //global data, used only during debugging
-extern KaelDebug *_GLOBAL_DEBUG;
+extern KaelDebug *GLOBAL_DEBUG;
 ```
 
 
@@ -168,8 +172,8 @@ void kaelFoo_init(KaelFoo *foo){
 
 
 #### Getters, setters
-Prefer getter and setter functions for encapsulation. 
-More often than not the values are modified before setting or return. 
+Prefer getter and setter functions for encapsulation. More often than not the values are modified before setting or return. 
+If any changes are made to foo->stuff, it's far easier to change the getter function than rewrite a gross mentions across a dozen files.
 ```C
 void kaelFoo_setStuff(uint16_t num){
 	foo->stuff=num;	
@@ -227,6 +231,8 @@ if(err<128	); // success or warning
 ## Implementation file and header structure
 Implementation and main() files are interchangeably called source files which can be confusing, hence they should be referred as *main* and *implementation* files, unless you are referring to both.
 
+Each variant that uses kaelMacros.h, has to have own include of it since variables are limited to file scope in object files. 
+
 Let's say we have kaelygon/module/module.h that has multiple variants which are built into their own object files
 #### Variant Header file
 ```C
@@ -239,6 +245,8 @@ Let's say we have kaelygon/module/module.h that has multiple variants which are 
 
 //Includes for this and implementation file
 #include <stdlib.h> 
+//Debug macros
+#include "kaelygon/global/kaelMacros.h"
 
 //Types, definitions and variables limited to module scope, that all the module variants use
 #include "kaelygon/module/moduleShared.h" //e.g. contains kmodule_t

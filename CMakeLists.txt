@@ -34,7 +34,7 @@ set(DEFAULT_SRC_DIR 			"${CMAKE_SOURCE_DIR}/src" ) # path to main.c
 set(DEFAULT_INCLUDE_DIR 	"${CMAKE_SOURCE_DIR}/include" ) # path to header files root
 set(DEFAULT_BUILD_TYPE		"RELEASE" ) # Options: RELEASE, DEBUG, ASAN
 set(DEFAULT_BUILD_WHAT		"ALL" ) # Options: ACTIVE, ALL
-set(DEFAULT_OMP_ENABLED 	"1" ) # Is omp multi-thread enabled? NOTE: Valgrind claims OMP is leaking ~300 bytes per thread
+set(DEFAULT_OMP_ENABLED 	"0" ) # Is omp multi-thread enabled? NOTE: Valgrind claims OMP is leaking ~300 bytes per thread
 
 message("\n${BCyan}##########   CMake ${BWhite}start ${BMagenta}${CMAKE_PROJECT_NAME}${BCyan}   ##########\n")
 
@@ -103,8 +103,10 @@ endif()
 
 # Set optimization or debugger flags
 set(CMAKE_BUILD_TYPE Debug)
-set(RELEASE_FLAGS "-Os" "-flto" "-g" "-Wall"  "-Wextra" "-pedantic") # RELEASE
-set(DEBUG_FLAGS "-g" "-Wall" "-Wextra" "-pedantic" "-D_GLIBCXX_DEBUG" "-fstack-usage" "-fno-omit-frame-pointer" "-O0") # DEBUG
+set(DEFAULT_FLAGS "-g" "-Wall" "-Wextra" "-pedantic")
+
+set(RELEASE_FLAGS "${DEFAULT_FLAGS}" "-Os" "-flto") # RELEASE
+set(DEBUG_FLAGS "${DEFAULT_FLAGS}" "-D_GLIBCXX_DEBUG" "-fstack-usage" "-fno-omit-frame-pointer" "-O0") # DEBUG
 set(ASAN_FLAGS "${DEBUG_FLAGS}" ) # ASAN same as debug flags
 
 
@@ -140,10 +142,10 @@ function(f_is_main_file _file _result)
 endfunction()
 
 #Remove main from list
-function(f_remove_main_files _sourceList)
+function(f_remove_main_files _implemList)
 	set(_tempList "")  # Temporary list to hold files without main()
 
-	foreach(_file ${${_sourceList}})
+	foreach(_file ${${_implemList}})
 		f_is_main_file(${_file} _hasMain)  # Check if the file has a main() function
 		if(NOT _hasMain)
 				list(APPEND _tempList ${_file})  # Add file if it does NOT contain main()
@@ -151,7 +153,7 @@ function(f_remove_main_files _sourceList)
 	endforeach()
 
 	# Return the filtered list
-	set(${_sourceList} ${_tempList} PARENT_SCOPE)
+	set(${_implemList} ${_tempList} PARENT_SCOPE)
 endfunction()
 
 #Inject macros
@@ -166,10 +168,10 @@ endfunction()
 
 ### BUILD_WHAT = ACTIVE
 # Function to build a specific source file (active program)
-function(f_build_active_source _mainBaseName _sourceList)
+function(f_build_active_source _mainDirectory _mainBaseName _implemList)
 
 	#Verify it has main()
-	set(_mainFile ${SRC_DIR}/${_mainBaseName}.c)
+	set(_mainFile ${_mainDirectory}/${_mainBaseName}.c)
 	f_is_main_file(${_mainFile} _isMainFile)
 	if(NOT _isMainFile)
 		message("${BRed}You are attempting to build implementation file: ${Blue}${_mainFile}")
@@ -195,7 +197,7 @@ function(f_build_active_source _mainBaseName _sourceList)
 	set(_includeDir ${INCLUDE_DIR}) #implementation .c and .h file directory
 
 	# Target specific includes
-	set(_targetInclude "${SRC_DIR}/include") 
+	set(_targetInclude "${_mainDirectory}/include") 
 	if(EXISTS ${_targetInclude})
 		message("${Gray}Target specific include found: ${Gray}${_targetInclude}")
 		list(APPEND _includeDir ${_targetIncludeDir})
@@ -205,7 +207,7 @@ function(f_build_active_source _mainBaseName _sourceList)
 	###Add include folders for .h
 	target_include_directories(${_progName} PRIVATE ${_includeDir}) 
 	### Link implementation files
-	target_sources(${_progName} PRIVATE ${_sourceList}) 
+	target_sources(${_progName} PRIVATE ${_implemList}) 
 
 	#Inject debug macro
 	f_inject_target_macro("${_progName}" "BUILD_TYPE STREQUAL DEBUG" "KAEL_DEBUG=1") 
@@ -215,15 +217,16 @@ endfunction()
 # Function to build all source files in directory
 function(f_build_all_sources _includeSources)
 	# Recursively find all .c main files from src directory
-	file(GLOB _mainFileList ${SRC_DIR}/*.c) 
+	file(GLOB_RECURSE _mainFileList ${SRC_DIR}/*.c) 
 
-	if(PROG) #Add active if any
-		list(APPEND ${SRC_DIR}/${PROG}.c)
-	endif()
+#	if(PROG) #Add active if any
+#		list(APPEND _mainFileList ${SRC_DIR}/${PROG}.c)
+#	endif()
 
 	foreach(_mainFile ${_mainFileList}) #Build every single file that has main() in it
-		get_filename_component(_mainBaseName ${_mainFile} NAME_WE)
-		f_build_active_source("${_mainBaseName}" "${_includeSources}")
+		get_filename_component(_mainBaseName ${_mainFile} NAME_WE) # File name with neither the directory nor the longest extension
+		get_filename_component(_mainDirectory ${_mainFile} DIRECTORY)
+		f_build_active_source("${_mainDirectory}" "${_mainBaseName}" "${_includeSources}")
 	endforeach()
 endfunction()
 
@@ -243,23 +246,25 @@ foreach(_includeDir ${INCLUDE_DIR})
 	if(EXISTS ${_includeDir})
 		execute_process(COMMAND ${CMAKE_COMMAND} -E echo_append "${Gray}${_includeDir}" ) 
 
-		file(GLOB_RECURSE _sourceList ${_includeDir}/*.c) 
-		list(APPEND SOURCE_LIST ${_sourceList} )
+		file(GLOB_RECURSE _implemList ${_includeDir}/*.c) 
+		list(APPEND IMPLEM_LIST ${_implemList} )
 	endif()
 	message("")
 endforeach()
 
-list (REMOVE_DUPLICATES SOURCE_LIST)
-f_remove_main_files(SOURCE_LIST)
+list (REMOVE_DUPLICATES IMPLEM_LIST)
+f_remove_main_files(IMPLEM_LIST)
 
 
 ###### Choose target
 
 if(BUILD_WHAT STREQUAL "ACTIVE" AND PROG)
-	f_build_active_source("${PROG}" "${SOURCE_LIST}")
+	f_build_active_source("${SRC_DIR}" "${PROG}" "${IMPLEM_LIST}")
+
 elseif(BUILD_WHAT STREQUAL "ALL")
 	message("${Green}TARGET ${BUILD_WHAT}")
-	f_build_all_sources("${SOURCE_LIST}")
+	f_build_all_sources("${IMPLEM_LIST}")
+	
 #elseif(BUILD_WHAT STREQUAL "ALL_TOOLS") #could have an other option for all tools building
 endif()
 

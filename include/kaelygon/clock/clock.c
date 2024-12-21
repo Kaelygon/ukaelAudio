@@ -6,15 +6,27 @@
 
 #include "kaelygon/clock/clock.h"
 
+/**
+ * @brief Fine time clock runs at TARGET_CLOCK_HZ
+ * 
+ * Rolls over every UINT16_MAX / TARGET_CLOCK_HZ second
+ */
+ktime_t kaelClock_time(){
+	#if CLOCK_USING_RDTSC
+		return kaelClock_rdtsc_time();
+	#endif
+	return 0;
+}
+
 void kaelClock_init(KaelClock *clock){
 	if (NULL_CHECK(clock)) { return; }
 
-	clock->frameStartTime = 0;
-	clock->frameHigh = 0;
-	clock->frameLow = 0;
+	clock->bufferStartTick = kaelClock_time();
+	clock->tickHigh = 0;
+	clock->tickLow = 0;
 
-	clock->frameRate = AUDIO_SAMPLE_RATE/AUDIO_BUFFER_SIZE; 
-	clock->cyclesPerFrame = (TARGET_CLOCK_HZ)/clock->frameRate;
+	clock->tickRate = AUDIO_SAMPLE_RATE/AUDIO_BUFFER_SIZE;
+	clock->ticksPerBuffer = (TARGET_CLOCK_HZ)/clock->tickRate;
 }
 
 void kaelClock_sleep(ktime_t cycles){
@@ -23,36 +35,36 @@ void kaelClock_sleep(ktime_t cycles){
 	#endif
 }
 
-ktime_t kaelClock_time(){
-	#if CLOCK_USING_RDTSC
-		return kaelClock_rdtsc_time();
-	#endif
-	return 0;
-}
-
+/**
+ * @brief Increment tick and sleep remaining time
+ * 
+ * Call last in loop
+ */
 ktime_t kaelClock_sync(KaelClock *clock){
-	clock->frameLow++;
-	clock->frameHigh += clock->frameLow==0 ;
+	clock->tickLow++;
+	clock->tickHigh += clock->tickLow==0 ;
 
-	// Sync screen update to CPU clock
 	ktime_t timeNow = kaelClock_time();
 	ktime_t elapsed=0;
 
-	if(timeNow < clock->frameStartTime){ //clock had wrapped around
-		ktime_t wrappedTime = KTIME_MAX - clock->frameStartTime; //time between frameStartTime and overflow
+	if(timeNow < clock->bufferStartTick){ //clock had wrapped around
+		ktime_t wrappedTime = KTIME_MAX - clock->bufferStartTick; //time between bufferStartTick and overflow
 		elapsed = wrappedTime + timeNow; //corrected time
 	}else{
-		elapsed = timeNow - clock->frameStartTime; //delta when no overflow
+		elapsed = timeNow - clock->bufferStartTick; //delta when no overflow
 	}
 
-	uint8_t timerOverrun = elapsed > clock->cyclesPerFrame;
-   ktime_t waitTime = timerOverrun ? 0 : clock->cyclesPerFrame - elapsed; //prevent underflow
-   clock->frameStartTime = timeNow+waitTime; //New frame starts after the wait
+	uint8_t timerOverrun = elapsed > clock->ticksPerBuffer;
+   ktime_t waitTime = timerOverrun ? 0 : clock->ticksPerBuffer - elapsed; //prevent underflow
+   clock->bufferStartTick = timeNow+waitTime; //New tick starts after the wait
 	kaelClock_sleep(waitTime);
 	return 0;
 }
 
+ktime_t kaelClock_getTick(const KaelClock *clock){
+	return clock->tickLow;
+}
 
-ktime_t kaelClock_getFrame(const KaelClock *clock){
-	return clock->frameLow;
+ktime_t kaelClock_getTickHigh(const KaelClock *clock){
+	return clock->tickHigh;
 }

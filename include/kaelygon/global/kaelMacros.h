@@ -17,6 +17,12 @@ extern uint16_t AUDIO_SAMPLE_RATE;
 	#define KAEL_DEBUG 1
 #endif
 
+
+//------ All targets shared variables ------
+
+#include "kaelygon/global/kaelMacrosShared.h"
+
+
 //------ Debug and Release target exclusives ------
 
 #if KAEL_DEBUG==1
