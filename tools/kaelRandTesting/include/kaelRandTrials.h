@@ -12,8 +12,9 @@
 //#include "kaelygon/math/rand.h"        
 //#include "kaelygon/math/base256.h"
 
+#include <omp.h>
 #include "./kaelRandTesting.h"
-#include "../../../include/kaelygon/math/k32.h"
+#include "./k32/k32.h"
 
 typedef uint8_t krand_t;
 
@@ -147,12 +148,12 @@ void kaelRandT_findCycle(CycleTuple *cycle, uint64_t maxCheckCount, const PrngCo
 		if(count>maxCheckCount){
 			goto FINDCYCLE_FREE_LABEL; //no period 
 		}
-	} while (kaelRandT_cmp(&hare,&tort));
+	} while (k32_cmp(&hare,&tort)!=128);
 
 	//Find the position mu of first repetition.
 	uint64_t mu=0;
     k32_seed(&tort,NULL);
-	while (kaelRandT_cmp(&hare,&tort)){
+	while (k32_cmp(&hare,&tort)!=128){
 		kaelRandT_base(&tort, coeff);
 		kaelRandT_base(&hare, coeff);
 		mu++;
@@ -177,7 +178,7 @@ void kaelRandT_findCycle(CycleTuple *cycle, uint64_t maxCheckCount, const PrngCo
             printf("Invalid period\n");
 			break; 
 		}
-	} while (kaelRandT_cmp(&hare,&tort));
+	} while (k32_cmp(&hare,&tort)!=128);
 	
     FINDCYCLE_FREE_LABEL:
 	return;

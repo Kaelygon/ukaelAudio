@@ -12,7 +12,7 @@
 
 #include "kaelygon/global/kaelMacros.h"
 
-#include "kaelygon/treeMem/treeMem.h"
+#include "kaelygon/treeMem/tree.h"
 #include "kaelygon/math/math.h"
 
 typedef struct{
@@ -79,11 +79,11 @@ void unitTest_treeFree(KaelTree *tree){
  */
 void unitTest_leafGenerate(unitTest_leaf *leaf, uint16_t colCount, uint16_t rowCount, uint16_t leafMaxLen, uint16_t seed){
 
-	seed = kaelRand_u16lcg(seed);
+	seed = kaelRand_lcg(seed);
 	leaf->start[0] = ((seed)%rowCount);
 	leaf->start[1] = ((seed>>8)%colCount);
 
-	seed = kaelRand_u16lcg(seed);
+	seed = kaelRand_lcg(seed);
 	leaf->end[1] = leaf->start[1] + kaelMath_sub(colCount,seed%colCount);
 	uint16_t leafWidth = leaf->end[1] - leaf->start[1] + 1;
 	leaf->end[0] = leaf->start[0]+(leafMaxLen+leafWidth-1)/leafWidth; //rows, height ceil
@@ -101,7 +101,7 @@ void unitTest_leafGenerate(unitTest_leaf *leaf, uint16_t colCount, uint16_t rowC
  * @brief Populate all branches
  */
 void unitTest_treeGenerate(KaelTree *tree, uint16_t colCount, uint16_t rowCount, uint16_t leafMaxLen){
-	uint16_t randNum = kaelRand_u16lcg(2141);
+	uint16_t randNum = kaelRand_lcg(2141);
 	uint16_t branchCount = kaelTree_length(tree);
 	for(uint16_t i=0; i<branchCount; i++){
 		KaelTree *branch = kaelTree_get(tree,i);
@@ -113,7 +113,7 @@ void unitTest_treeGenerate(KaelTree *tree, uint16_t colCount, uint16_t rowCount,
 				printf("Failed to get leaf %u %u\n", leaf->start[0], leaf->start[1]);
 				continue;
 			}
-			randNum = kaelRand_u16lcg(randNum);
+			randNum = kaelRand_lcg(randNum);
 			unitTest_leafGenerate(leaf, colCount, rowCount, leafMaxLen, randNum);
 		}
 	}

@@ -8,8 +8,8 @@
  * Most significant byte is first in array
  */
 
-#include "kaelygon/math/k32u8.h"
-#include "kaelygon/math/k32.h"
+#include "./k32u8.h"
+#include "./k32.h"
 
 
 //------ kael32_t by kael32_t functions ------

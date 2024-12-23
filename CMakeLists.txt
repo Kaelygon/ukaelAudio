@@ -54,18 +54,19 @@ endif()
 
 ### Interpret flags
 
-if(NOT BUILD_WHAT) #Directory to the .c file with main()
+if(NOT BUILD_WHAT) #ALL or ACTIVE
 	set(BUILD_WHAT ${DEFAULT_BUILD_WHAT})
 	message("${Gray}Using default BUILD_WHAT ${BUILD_WHAT}")
 endif()
 
-if(NOT BUILD_TYPE) #Directory to the .c file with main()
+if(NOT BUILD_TYPE) #RELEASE DEBUG or ASAN
 	set(BUILD_TYPE ${DEFAULT_BUILD_TYPE})
 	message("${Gray}Using default BUILD_TYPE ${DEFAULT_BUILD_TYPE}")
 endif()
 
+#If no program specified, then build all 
 if(NOT PROG) 
-set(BUILD_WHAT "ALL") #If no program specified, then build all 
+set(BUILD_WHAT "ALL") 
 endif()
 
 if(NOT OMP_ENABLED)
@@ -73,7 +74,7 @@ if(NOT OMP_ENABLED)
 	message("${Gray}Using default OMP_ENABLED ${OMP_ENABLED}")
 endif()
 
-#capitalize
+#capitalize so the input is case insensitive
 if(BUILD_WHAT)
 	string(TOUPPER ${BUILD_WHAT} BUILD_WHAT)
 endif()
@@ -82,39 +83,38 @@ if(BUILD_TYPE)
 endif()
 
 
+# Set OMP
+if(OMP_ENABLED)
+	find_package(OpenMP REQUIRED)
+	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fopenmp")
+	set(CMAKE_EXE_LINKER_FLAGS ${CMAKE_EXE_LINKER_FLAGS} "-fopenmp")
+	set(FLAGS ${FLAGS} ${OpenMP_CXX_FLAGS})
+endif()
+
+
 ### Find packages
 find_package(PkgConfig REQUIRED)
 find_package(ALSA REQUIRED)
-find_package(Curses REQUIRED)
-find_package(OpenMP REQUIRED)
 pkg_check_modules(PKG_PipeWire REQUIRED IMPORTED_TARGET libpipewire-0.3)
-set(LINK_LIBRARIES "${ALSA_LIBRARIES}" "${PIPESWIRE_LIBRARIES}" "PkgConfig::PKG_PipeWire" "m" "${CURSES_LIBRARIES}")
+set(LINK_LIBRARIES "${ALSA_LIBRARIES}" "${PIPESWIRE_LIBRARIES}" "PkgConfig::PKG_PipeWire")
 
 
 
 ###### Choose GCC flags
-
-# Set OMP
-if(OMP_ENABLED)
-	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fopenmp")
-	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fopenmp")
-	set(FLAGS ${FLAGS} ${OpenMP_CXX_FLAGS})
-endif()
 
 # Set optimization or debugger flags
 set(CMAKE_BUILD_TYPE Debug)
 set(DEFAULT_FLAGS "-g" "-Wall" "-Wextra" "-pedantic")
 
 set(RELEASE_FLAGS "${DEFAULT_FLAGS}" "-Os" "-flto") # RELEASE
-set(DEBUG_FLAGS "${DEFAULT_FLAGS}" "-D_GLIBCXX_DEBUG" "-fstack-usage" "-fno-omit-frame-pointer" "-O0") # DEBUG
-set(ASAN_FLAGS "${DEBUG_FLAGS}" ) # ASAN same as debug flags
+set(DEBUG_FLAGS "${DEFAULT_FLAGS}" "-D_GLIBCXX_DEBUG" "-O0") # DEBUG # "-fstack-usage" "-fno-omit-frame-pointer" # These two are commented due to code-oss midebugger bug
+set(ASAN_FLAGS "${DEBUG_FLAGS}" "-fsanitize=undefined,address" "-fno-omit-frame-pointer") # ASAN same as debug flags
 
 
 # Set flags by target
 if(BUILD_TYPE STREQUAL "ASAN") 
-	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=undefined,address -fno-omit-frame-pointer")
+	set(FLAGS "${ASAN_FLAGS}")
 	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address")
-	set(FLAGS ${ASAN_FLAGS})
 
 elseif(BUILD_TYPE STREQUAL "RELEASE") 
 	set(FLAGS ${RELEASE_FLAGS})
@@ -124,6 +124,9 @@ else() #Debug
 	set(FLAGS ${DEBUG_FLAGS})
 	set(CMAKE_BUILD_TYPE ${BUILD_TYPE})
 endif()
+
+
+
 
 
 ################# Functions #################
@@ -141,19 +144,29 @@ function(f_is_main_file _file _result)
 	endif()
 endfunction()
 
-#Remove main from list
-function(f_remove_main_files _implemList)
+#Remove or keep only the main() files in list of .c files
+#_remMainFiles==1 removes main files, otherwise implementation files are removed
+function(f_separate_main_files _sourceList _remMainFiles)
 	set(_tempList "")  # Temporary list to hold files without main()
 
-	foreach(_file ${${_implemList}})
+	foreach(_file ${${_sourceList}})
 		f_is_main_file(${_file} _hasMain)  # Check if the file has a main() function
-		if(NOT _hasMain)
-				list(APPEND _tempList ${_file})  # Add file if it does NOT contain main()
+
+		if(_remMainFiles) #Delete main files
+			if(NOT _hasMain) 
+					list(APPEND _tempList ${_file})  
+			endif()
+
+		else() #Keep main files
+			if(_hasMain) 
+					list(APPEND _tempList ${_file})  
+			endif()
+
 		endif()
 	endforeach()
 
 	# Return the filtered list
-	set(${_implemList} ${_tempList} PARENT_SCOPE)
+	set(${_sourceList} ${_tempList} PARENT_SCOPE)
 endfunction()
 
 #Inject macros
@@ -164,6 +177,8 @@ function(f_inject_target_macro TARGET CONDITION MACRO)
 endfunction()
 
 
+
+
 ###### Build functions
 
 ### BUILD_WHAT = ACTIVE
@@ -172,56 +187,66 @@ function(f_build_active_source _mainDirectory _mainBaseName _implemList)
 
 	#Verify it has main()
 	set(_mainFile ${_mainDirectory}/${_mainBaseName}.c)
+	if( NOT EXISTS ${_mainFile} )
+		message("${Blue}${_mainFile} ${BRed}Doesn't exist. Are you trying to build a header file?")
+		return()
+	endif()
 	f_is_main_file(${_mainFile} _isMainFile)
 	if(NOT _isMainFile)
 		message("${BRed}You are attempting to build implementation file: ${Blue}${_mainFile}")
 		return()
 	endif()
 
+
 	#Set executable name suffix
 	set(_progName ${_mainBaseName}_${BUILD_TYPE}) 
 	#Link exectuable to the file with main()
 	add_executable(${_progName} ${_mainFile}) 
-
+	
 	message("${Green}Building program ${Blue}${_progName}")
+
 
 	#set build directory path
 	set_target_properties(${_progName} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${BUILD_DIR})
-
 	#Set C standard
 	target_compile_options(${_progName} PRIVATE $<$<CONFIG:${BUILD_TYPE}>:${FLAGS}> ) 
 	#Link packages
 	target_link_libraries(${_progName} PRIVATE ${LINK_LIBRARIES}) 
+	### Link main() and implementation files
+	set(_includeDir ${INCLUDE_DIR})
 
-	### Link sources and implementation files
-	set(_includeDir ${INCLUDE_DIR}) #implementation .c and .h file directory
 
-	# Target specific includes
-	set(_targetInclude "${_mainDirectory}/include") 
-	if(EXISTS ${_targetInclude})
-		message("${Gray}Target specific include found: ${Gray}${_targetInclude}")
+	#### Target specific includes
+	set(_targetIncludeDir "${_mainDirectory}/include") 
+	if(EXISTS ${_targetIncludeDir})
+		message("${Gray}Target specific include found: ${Gray}${_targetIncludeDir}")
 		list(APPEND _includeDir ${_targetIncludeDir})
+
+		file(GLOB_RECURSE _targetImplemList ${_targetIncludeDir}/*.c) 
+		list(APPEND _implemList ${_targetImplemList} )
 	endif()
 
 
-	###Add include folders for .h
+	###Add include folders for .h files
 	target_include_directories(${_progName} PRIVATE ${_includeDir}) 
-	### Link implementation files
+	### Link .c implementation files
 	target_sources(${_progName} PRIVATE ${_implemList}) 
+
 
 	#Inject debug macro
 	f_inject_target_macro("${_progName}" "BUILD_TYPE STREQUAL DEBUG" "KAEL_DEBUG=1") 
+
 endfunction()
 
-### BUILD_WHAT = ALL
+
+
+
+### BUILD_WHAT = ALL helper
 # Function to build all source files in directory
 function(f_build_all_sources _includeSources)
 	# Recursively find all .c main files from src directory
 	file(GLOB_RECURSE _mainFileList ${SRC_DIR}/*.c) 
-
-#	if(PROG) #Add active if any
-#		list(APPEND _mainFileList ${SRC_DIR}/${PROG}.c)
-#	endif()
+	f_separate_main_files(_mainFileList 0) # 0= keep only main files
 
 	foreach(_mainFile ${_mainFileList}) #Build every single file that has main() in it
 		get_filename_component(_mainBaseName ${_mainFile} NAME_WE) # File name with neither the directory nor the longest extension
@@ -253,19 +278,18 @@ foreach(_includeDir ${INCLUDE_DIR})
 endforeach()
 
 list (REMOVE_DUPLICATES IMPLEM_LIST)
-f_remove_main_files(IMPLEM_LIST)
+f_separate_main_files(IMPLEM_LIST 1)  # 1 = remove only main files
 
 
-###### Choose target
+###### Choose BUILD_WHAT
 
 if(BUILD_WHAT STREQUAL "ACTIVE" AND PROG)
 	f_build_active_source("${SRC_DIR}" "${PROG}" "${IMPLEM_LIST}")
-
+	
 elseif(BUILD_WHAT STREQUAL "ALL")
 	message("${Green}TARGET ${BUILD_WHAT}")
 	f_build_all_sources("${IMPLEM_LIST}")
 	
-#elseif(BUILD_WHAT STREQUAL "ALL_TOOLS") #could have an other option for all tools building
 endif()
 
 
@@ -323,7 +347,6 @@ f_add_del_cmds("${_clean_file_list}" "clean_all")
 
 message("")
 message("${Green}Building: ${BWhite}${CMAKE_C_COMPILER} C${CMAKE_C_STANDARD} ${Gray}${SRC_DIR}/${PROG} ${FLAGS}")
-message("${Green}Compiler Flags: ${Gray}${CMAKE_C_FLAGS}")
 message("${Green}Linker Libraries: ${Gray}${LINK_LIBRARIES}")
 message("${Green}Build directory: ${Blue}${CMAKE_SOURCE_DIR}")
 

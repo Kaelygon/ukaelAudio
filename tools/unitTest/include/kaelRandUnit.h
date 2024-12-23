@@ -12,14 +12,13 @@
 #include <x86intrin.h>
 
 #include "kaelygon/math/math.h"
-#include "kaelygon/math/k32.h"
 
 #include <math.h>
 
 void kaelRand_unit(){
 
-	kael32_t randState; 
-	k32_seed(&randState,"I am about to become a hash, tihihii!");
+	uint8_t randState[3]; 
+	kaelRand_lcg24Seed(randState,"I am about to become a hash, tihihii!");
 
 	FILE *fptr;
 	fptr = fopen("./generated/audio.pcm","wb");
@@ -29,7 +28,7 @@ void kaelRand_unit(){
 
 	uint64_t startTime = __rdtsc();
 	for(uint64_t i=0; i<(uint64_t)pow(2,8);i++){
-		num = k32_rand(&randState);
+		num = kaelRand_lcg24(randState);
 		fwrite(&num,sizeof(uint8_t),1,fptr);
 	}
 	uint64_t endTime = __rdtsc();

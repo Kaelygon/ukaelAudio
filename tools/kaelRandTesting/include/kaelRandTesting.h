@@ -30,7 +30,7 @@ Goals:
 
 #include "kaelygon/global/kaelMacros.h"
 #include "kaelygon/math/math.h"
-#include "kaelygon/math/k32.h"
+#include "./k32/k32.h"
 
 
 typedef struct PrngCoeff PrngCoeff;
@@ -70,19 +70,39 @@ uint8_t kaelRandT_lcg(kael32_t *krand, const PrngCoeff coeff){
 	uint8_t carry = k32_u8mad(krand, krand, coeff.mul, coeff.add);
 	return krand->s[0] + carry;
 }
-//KAEL32_BYTES-1
+
 uint8_t kaelRandT_pcg(kael32_t *krand, const PrngCoeff coeff){
-	k32_rorr(krand, coeff.shift);
-	uint8_t carry = k32_u8mad(krand, krand, coeff.mul, coeff.add);
-	carry = k32_u8add(krand, krand, carry);
-	return krand->s[0] + carry;
+	uint8_t i=0;
+	uint8_t sum=0;
+	do{
+		kaelMath_u8rorr(krand->s[i], coeff.shift);
+		sum+=krand->s[i]++;
+	}while(krand->s[i++]==0 && i<(KAEL32_BYTES));
+	return sum;
 }
 
 uint8_t kaelRandT_base( kael32_t *krand, const PrngCoeff coeff ){
 	return coeff.oper(krand, coeff);
 }
 
-
+/**
+ * @brief Bijective PRNG
+ * 
+ * Comparable but not equivalent to 257*seed[i++]+carry
+ */
+uint8_t kaelRandT_simple( kael32_t *krand, const PrngCoeff coeff ){
+	uint16_t carry = coeff.add;
+	
+	carry+= krand->s[0];
+	krand->s[0] = carry;
+	
+	carry+= krand->s[1] + (carry>>coeff.shift);
+	krand->s[1] = carry;
+	
+	krand->s[2]+= carry + (carry>>coeff.shift);
+		
+	return krand->s[2];
+}
 
 //compare two kael32_t states
 //0 means they are equal

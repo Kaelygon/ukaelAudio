@@ -1,7 +1,7 @@
 
 // 
 /**
-	@file treeMem.c
+	@file tree.c
 
 	@brief 16-bit uint c++ std::vector like, dynamic memory stored in heap
 	
@@ -23,7 +23,7 @@
 #include <string.h>
 
 #include "kaelygon/global/kaelMacros.h"
-#include "kaelygon/treeMem/treeMem.h"
+#include "kaelygon/treeMem/tree.h"
 #include "kaelygon/math/math.h"
 
 //if used memory exceeds capacity, scale it by GROWTH_NUMER/GROWTH_DENOM times
@@ -65,7 +65,7 @@ void kaelTree_free(KaelTree *tree){
 /**
  * @brief Add element to tree. NULL element is initialized as zero
  */
-KaelTree *kaelTree_push(KaelTree *tree, const void *element){
+KaelTree *kaelTree_push(KaelTree *tree, const void *restrict element){
 	if(NULL_CHECK(tree)){return NULL;}
 
 	uint16_t newLength = tree->length +1;
@@ -167,9 +167,9 @@ void kaelTree_setWidth(KaelTree *tree, uint16_t size){
 }
 
 /**
- * @brief set value by index
+ * @brief Set element value in a tree by index
  */
-void kaelTree_set(KaelTree *tree, uint16_t index, const void *element){
+void kaelTree_set(KaelTree *tree, uint16_t index, const void *restrict element){
 	if(NULL_CHECK(tree,"set")){return;}
 	void *dest = kaelTree_get(tree, index);
 	if(dest==NULL){return;}

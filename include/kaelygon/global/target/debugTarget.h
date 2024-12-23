@@ -13,9 +13,6 @@
 
 #include "kaelygon/string/string.h"
 
-struct KaelStr; //won't work without forward declaration
-typedef struct KaelStr KaelStr; 
-
 //Select 1 or 2 argument macro
 #define KAEL_MACRO_ARGS2(_1, _2, NAME, ...) NAME
 
@@ -41,8 +38,6 @@ typedef struct KaelStr KaelStr;
 #define NULL_CHECK(...) KAEL_MACRO_ARGS2(__VA_ARGS__, NULL_CHECK_ARGS2, NULL_CHECK_ARGS1)(__VA_ARGS__)
 
 
-
-uint8_t kaelStr_pushCstr(KaelStr *dest, const char *src);
 
 uint8_t kaelDebug_nullCheck(const void* ptr, const char *ptrName, const char *note); //DEBUG
 void kaelDebug_storeNote(const char *note); //INFO

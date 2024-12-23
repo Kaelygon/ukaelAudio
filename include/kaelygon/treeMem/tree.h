@@ -1,5 +1,8 @@
-//./include/treeMem/treeMem.h
-// 16-bit uint c++ std::vector like data
+/**
+ * @file tree.h
+ * @brief 16-bit uint c++ std::vector like data
+ * Can hold any same width type in a single tree 
+ */
 #pragma once
 
 #include <stdlib.h>
@@ -17,13 +20,13 @@ typedef struct{
 uint8_t kaelTree_alloc(KaelTree *tree, uint16_t width);
 void kaelTree_free(KaelTree *tree);
 
-KaelTree *kaelTree_push(KaelTree *tree, const void *element);
+KaelTree *kaelTree_push(KaelTree *tree, const void *restrict element);
 uint8_t kaelTree_pop(KaelTree *tree);
 uint8_t kaelTree_resize(KaelTree *tree, uint16_t n);
 
 void kaelTree_setWidth(KaelTree *tree, uint16_t width);
 
-void kaelTree_set(KaelTree *tree, uint16_t index, const void *element);
+void kaelTree_set(KaelTree *tree, uint16_t index, const void *restrict element);
 
 void *kaelTree_get(KaelTree *tree, uint16_t index);
 

@@ -24,7 +24,7 @@ typedef struct{
 	uint8_t s[KAEL32_BYTES]; //Least significant byte last, big endian
 }kael32_t;
 
-#include "kaelygon/math/k32u8.h"
+#include "./k32u8.h"
 
 //--- Arithmetic
 

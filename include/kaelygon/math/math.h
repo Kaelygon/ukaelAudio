@@ -9,23 +9,24 @@
 #include <limits.h>
 #include "kaelygon/global/kaelMacros.h"
 
-typedef uint16_t kmath_t;
+//kaelmath
 
-kmath_t kaelMath_min(kmath_t a, kmath_t b);
-kmath_t kaelMath_max(kmath_t a, kmath_t b);
-kmath_t kaelMath_isNegative(kmath_t a);
-kmath_t kaelMath_gtZeroSigned(kmath_t a);
-kmath_t kaelMath_abs(kmath_t a);
-kmath_t kaelMath_sub(kmath_t a, kmath_t b);
+uint16_t kaelMath_min(uint16_t a, uint16_t b);
+uint16_t kaelMath_max(uint16_t a, uint16_t b);
+uint16_t kaelMath_isNegative(uint16_t a);
+uint16_t kaelMath_gtZeroSigned(uint16_t a);
+uint16_t kaelMath_abs(uint16_t a);
+uint16_t kaelMath_sub(uint16_t a, uint16_t b);
 
-kmath_t kaelMath_lcg(kmath_t seed);
+uint8_t kaelMath_log10(uint16_t num);
 
-kmath_t kaelMath_rorr(kmath_t num, kmath_t shift);
-
+uint16_t kaelMath_rorr(uint16_t num, const uint16_t shift);
 uint8_t kaelMath_u8rorr(uint8_t num, uint8_t shift);
 
-uint8_t kaelMath_log10(kmath_t num);
+uint16_t kaelRand_lcg(uint16_t seed);
 
+// 3 = _rand24States, it's not possible to have this non-global variable or define so we use magic number 
+uint8_t kaelRand_lcg24(uint8_t seed[3]); 
+void kaelRand_lcg24Seed(uint8_t seed[3], const char* cstring);
 
-void kaelRand_hash(const char* cstr, uint8_t *numArr, uint8_t arrLen);
-uint16_t kaelRand_u16lcg(uint16_t seed);
+void kaelRand_hash(uint8_t *numArr, uint8_t arrLen, const char* cstring);

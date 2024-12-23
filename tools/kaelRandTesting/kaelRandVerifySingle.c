@@ -13,14 +13,14 @@ Verify single unit
 
 #include "./include/kaelRandTesting.h"
 #include "./include/kaelRandTrials.h"
-#include "../../include/kaelygon/math/k32.h"
+#include "./include/k32/k32.h"
 
 //---------
 //1,  37,  57
  	
 int main() {
 
-	omp_set_num_threads(0); 
+	omp_set_num_threads(1); 
 	
 	const uint64_t checkCount=pow(2,24); //check up to this many iterations
 	const uint64_t minPeriod=pow(2,24)-1; //pass test threshold
@@ -44,26 +44,26 @@ int main() {
 	const uint8_t printDiffMod = 1;
 	const uint8_t printAll = 1;
 
-	const PrngCoeff coeff = (PrngCoeff) {  1,  89, 57, kaelRandT_lcg, "kaelRandT_lcg"}; //full period
+	const PrngCoeff coeff = (PrngCoeff) {  8,  1,  99, kaelRandT_simple, "kaelRandT_simple"}; 
 
-    const rlcg_args mainArgs = (rlcg_args){
-        .minPeriod 			= minPeriod			,
-        .checkCount 		= checkCount		,
-        .maxAvgZscore		= maxAvgZscore		, 
-        .minAvgZscore		= minAvgZscore		,
-        .maxZscore 			= maxZscore			,
-        .randSCount 		= randSCount		,
-        .stateCount			= stateCount		,
-        .firstPeriodCheck 	= firstPeriodCheck	,
-        .modList			= modList			,
-        .modCount			= modCount			,
-        .diffModCount		= diffModCount		,
-        .periodOnly			= periodOnly		,
-        .printAll		    = printAll		    ,
-        .printDiffMod       = printDiffMod      ,
-    };
-    uint8_t passed = kaelRandT_runRandTests(mainArgs,coeff);
-                
+	 const rlcg_args mainArgs = (rlcg_args){
+		  .minPeriod 			= minPeriod			,
+		  .checkCount 			= checkCount		,
+		  .maxAvgZscore		= maxAvgZscore		, 
+		  .minAvgZscore		= minAvgZscore		,
+		  .maxZscore 			= maxZscore			,
+		  .randSCount 			= randSCount		,
+		  .stateCount			= stateCount		,
+		  .firstPeriodCheck 	= firstPeriodCheck	,
+		  .modList				= modList			,
+		  .modCount				= modCount			,
+		  .diffModCount		= diffModCount		,
+		  .periodOnly			= periodOnly		,
+		  .printAll		    	= printAll		    ,
+		  .printDiffMod      = printDiffMod      ,
+	 };
+	 uint8_t passed = kaelRandT_runRandTests(mainArgs,coeff);
+					 
 	printf("passed: %u\n",passed);
 
 	return 0;

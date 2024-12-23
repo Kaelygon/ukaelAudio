@@ -26,16 +26,16 @@ int main() {
 
 	omp_set_num_threads(24); 
 
-	const uint64_t checkCount=pow(2,4); //check up to this many iterations
-	const uint64_t minPeriod=pow(2,4)-1; //pass test threshold
+	const uint64_t checkCount=pow(2,24); //check up to this many iterations
+	const uint64_t minPeriod=pow(2,24)-1; //pass test threshold
 	uint64_t totalCandies=0;
 
-	const krand_t minShift=1;
-	const krand_t maxShift=2;
+	const krand_t minShift=8;
+	const krand_t maxShift=9;
 	const krand_t shiftInc=1;
 
 	const krand_t minMul=1;
-	const krand_t maxMul=100;
+	const krand_t maxMul=5;
 	const krand_t mulInc=4;
 
 	const krand_t minAdd=1;
@@ -46,18 +46,18 @@ int main() {
 
 	//randomness statistics
 	const double maxZscore = 4.0; //any single rand test period max zscore passable, test will stop if this is exceeded 
-	const double meanZscore = sqrt(3)/2;
-	const double maxAvgZscore = meanZscore+0.05; //print only values with lower average zscore than this
-	const double minAvgZscore = meanZscore-0.05; 
+	//const double meanZscore = sqrt(3)/2; //mean abs z score 
+	const double maxAvgZscore = 4.0; //print only values with lower average zscore than this
+	const double minAvgZscore = 0; 
 	
-	const double randSCount = minPeriod/32 + 1; //one rand test period sample count 
+	const double randSCount = minPeriod; //one rand test period sample count 
 
-	const uint64_t firstPeriodCheck = checkCount; //preliminary period check length
+	const uint64_t firstPeriodCheck = minPeriod; //preliminary period check length
 	const uint8_t periodOnly = 0; //checks period up to firstPeriodCheck and skips rest of the tests
 
 	const uint64_t modList[] = {3,7};
 	const uint64_t modCount = sizeof(modList)/sizeof(uint64_t);
-	const uint64_t diffModCount = 256;
+	const uint64_t diffModCount = 17;
 
 	const uint8_t printAll = 0; //print even failed tests
 
@@ -80,8 +80,8 @@ int main() {
 					.shift 				= shift	 			,
 					.mul 				= newMul			,
 					.add 				= newAdd			,
-					.oper				= kaelRandT_lcg	,
-					.name				="kaelRandT_lcg"
+					.oper				= kaelRandT_simple	,
+					.name				="kaelRandT_simple"
 				};
 			
 				const rlcg_args mainArgs = (rlcg_args){

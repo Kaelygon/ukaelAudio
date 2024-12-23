@@ -11,7 +11,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include "kaelygon/global/kaelMacros.h" //globals
-#include "kaelygon/math/k32.h" //Header of kael32_t implementation
+#include "./k32.h" //Header of kael32_t implementation
 
 //--- k32 by u8
 

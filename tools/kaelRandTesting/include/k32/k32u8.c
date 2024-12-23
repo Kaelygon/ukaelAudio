@@ -6,7 +6,7 @@
  * Most significant byte is first in array
  */
 
-#include "kaelygon/math/k32u8.h"
+#include "./k32u8.h"
 
 //------- k32 by u8 functions ------
 

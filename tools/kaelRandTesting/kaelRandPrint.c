@@ -23,7 +23,7 @@ int main(){
 
 	//Testing
 	//4294967296 period, good difference distribution
-	coeff = (PrngCoeff) {  1,  89,  57, kaelRandT_lcg, "kaelRandT_lcg"}; 
+	coeff = (PrngCoeff) {  8,  1,  205, kaelRandT_simple, "kaelRandT_simple"}; 
 
    kael32_t randState = {0};
 

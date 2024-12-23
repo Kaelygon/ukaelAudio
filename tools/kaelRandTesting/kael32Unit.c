@@ -5,7 +5,7 @@
 #include <stdlib.h>
 
 #include "kaelygon/math/math.h"
-#include "kaelygon/math/k32.h"
+#include "./include/k32/k32.h"
 #include "kaelygon/global/kaelMacros.h"
 
 
