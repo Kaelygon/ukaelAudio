@@ -25,6 +25,7 @@ endif()
 cmake_minimum_required(VERSION 3.20)
 project(kaelAudio C)
 
+# C23 because binary literals 0b11110000
 set(CMAKE_C_STANDARD 23)
 set(CMAKE_C_COMPILER "gcc") 
 
@@ -35,6 +36,10 @@ set(DEFAULT_INCLUDE_DIR 	"${CMAKE_SOURCE_DIR}/include" ) # path to header files 
 set(DEFAULT_BUILD_TYPE		"RELEASE" ) # Options: RELEASE, DEBUG, ASAN
 set(DEFAULT_BUILD_WHAT		"ALL" ) # Options: ACTIVE, ALL
 set(DEFAULT_OMP_ENABLED 	"0" ) # Is omp multi-thread enabled? NOTE: Valgrind claims OMP is leaking ~300 bytes per thread
+
+#Hardcoded options because I already have too many build options
+set(DISABLE_AUDIO	"1" ) 
+set(BUILD_16_BIT	"0" )
 
 message("\n${BCyan}##########   CMake ${BWhite}start ${BMagenta}${CMAKE_PROJECT_NAME}${BCyan}   ##########\n")
 
@@ -93,18 +98,24 @@ endif()
 
 
 ### Find packages
-find_package(PkgConfig REQUIRED)
-find_package(ALSA REQUIRED)
-pkg_check_modules(PKG_PipeWire REQUIRED IMPORTED_TARGET libpipewire-0.3)
-set(LINK_LIBRARIES "${ALSA_LIBRARIES}" "${PIPESWIRE_LIBRARIES}" "PkgConfig::PKG_PipeWire")
-
+if(NOT DISABLE_AUDIO)
+	find_package(PkgConfig REQUIRED)
+	find_package(ALSA REQUIRED)
+	pkg_check_modules(PKG_PipeWire REQUIRED IMPORTED_TARGET libpipewire-0.3)
+	set(LINK_LIBRARIES "${ALSA_LIBRARIES}" "${PIPESWIRE_LIBRARIES}" "PkgConfig::PKG_PipeWire")
+endif()
 
 
 ###### Choose GCC flags
 
+
 # Set optimization or debugger flags
 set(CMAKE_BUILD_TYPE Debug)
 set(DEFAULT_FLAGS "-g" "-Wall" "-Wextra" "-pedantic")
+
+if(BUILD_16_BIT)
+	set(DEFAULT_FLAGS "${DEFAULT_FLAGS}" "-m16")
+endif()
 
 set(RELEASE_FLAGS "${DEFAULT_FLAGS}" "-Os" "-flto") # RELEASE
 set(DEBUG_FLAGS "${DEFAULT_FLAGS}" "-D_GLIBCXX_DEBUG" "-O0") # DEBUG # "-fstack-usage" "-fno-omit-frame-pointer" # These two are commented due to code-oss midebugger bug

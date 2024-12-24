@@ -1,222 +1,244 @@
 
-
-
-
 #include "kaelygon/treeMem/tree.h"
+#include <x86intrin.h> 
+
 #include "kaelygon/math/math.h"
 #include "kaelygon/global/kaelMacros.h"
-#include <x86intrin.h> 
 
 #include <stdio.h>
 
 
+//static const uint8_t _puaStart = 0xE0;
+//static const uint8_t _puaEnd   = 0xF8;
+static const uint8_t _unicodeMask = 0b10000000;
 
+/**
+ * @brief fancy string print buffer
+ */
+typedef struct{
+	char* s; //buffer address 
+	uint16_t pos; //Write position of .s
+	uint16_t size; //buffer .s size
+	const char* read; //ptr to string being printed
+}KaelRowBuffer;
 
 
 typedef enum {
 	/*Style*/
-	RESET 		= 0, 
-	BOLD 			= 1,  
-	UNDERLINE 	= 4, 
-	BLINK 		= 5, 
-	REVERSE 		= 7, 
-	HIDDEN 		= 2, //actual value is 8
+	ansiReset 		= 0, 
+	ansiBold 		= 1,  
+	ansiUnderline 	= 4, 
+	ansiBlink 		= 5, 
+	ansiReverse 	= 7, 
+	//ansiHidden	= 8, overflow. Use ansiWhite space or jump instead
 
 	/*Foreground MOD_COL to get ansi code*/
-	BLACK 		= 0,
-	RED 			= 1, 
-	GREEN 		= 2, 
-	YELLOW 		= 3, 
-	BLUE 			= 4, 
-	MAGENTA 		= 5, 
-	CYAN 			= 6, 
-	WHITE 		= 7, 
+	ansiBlack 	= 0,
+	ansiRed 		= 1, 
+	ansiGreen 	= 2, 
+	ansiYellow 	= 3, 
+	ansiBlue 	= 4, 
+	ansiMagenta = 5, 
+	ansiCyan 	= 6, 
+	ansiWhite 	= 7, 
 } AnsiCode_enum;
 
 typedef enum{
-	FG_LO, 
-	FG_HI, 
-	BG_HI, 
-	BG_LO, 
+	ansiFGLow, 
+	ansiFGHigh, 
+	ansiBGLow, 
+	ansiBGHigh, 
 }AnsiMod_enum;
 
-uint8_t AnsiMod[4] = {
-	30, //FG_LO
-	40, //FG_HI
-	70, //BG_HI
-	90, //BG_LO
+//Offsets to get fore-/background colors low and high
+uint8_t AnsiModValue[4] = {
+	30, //ansiFGLow
+	40, //ansiFGHigh
+	70, //ansiBGLow
+	90, //ansiBGHigh
 };
 
-/*
-
-1 byte ANSI coding
-mod | color | style
-##  |  111  | 111
-
-first 2 bits are modifier (mod)
-00 = FG LO color
-01 = FG HI color
-00 = BG LO color
-01 = BG HI color
-
-0b (00 101 100) = underlined magenta
-*/
-
+/**
+ * @brief Ansi color code escape sequence encoded in a single byte
+ */
 typedef union {
 	struct {
 		uint8_t mod    : 2;
 		uint8_t color  : 3;
 		uint8_t style  : 3;
 	};
-	uint8_t code;
-} AnsiStyle;
+	uint8_t byte;
+} AnsiCode;
 
-typedef struct{
-	uint16_t pos[2];
-	uint8_t size[2];
+/**
+ * @brief Encode ansi color into a single byte
+ */
+char encodeAnsiStyle(uint8_t mod, uint8_t color, uint8_t style){
+	AnsiCode code = {
+		.mod = mod,
+		.color = color,
+		.style = style
+	};
+	return code.byte;
+}
 
-	char *text; //Null terminated string
-}PageShape;
-/*
-	-The shapes are sorted by position and ideally there's no overlap.
-	-Row buffer loop takes the first shape position as the start and copies its row to buffer. 
-	-If buffer is full, it's printed out which after reading continues till last column of the page or char is NULL. 
-	-Each shape read head is advanced by how much was written to the buffer. 
-	-If there's no more shapes before last column, a newline is printed and reading starts from 0th shape but this time the read head is shifted and row buffer will print out on the next line.
-	While looping, shapes which are fully printed out will be skipped since their read head position char is NULL. Read head could be just copy of char pointer which is incremented
-	Once all shapes are printed, read heads are zeroed and a new frame begins
-
-	-The row buffer loop needs some method to detect when to print next AnsiStyle and when to jump white spaces by advancing the read head and by much. 
-*/
-/* 
-	Ansi escape sequences take up to 10 bytes but here they are stored in 1 byte, AnsiStyle.
-	In string they take 3 bytes since they are detected by '\esc' followed by marker type and finally information related to the marker
-	It's very much akin to ansi escape sequence, but compacted
-
-	MARKER_STYLE and MARKER_JUMP are some otherwise unused ascii characters or escape sequences.
-	Having for example \esc[NULL], \esc[MARKER_STYLE] would make the switch statement true or false case
-	
-	Example what one shape.text contains
-	(char *)shape->text = {\esc,[MARKER_STYLE],[AnsiStyle_byte],H,e,l,l,o,\esc,[MARKER_JUMP],[Jump_byte],W,o,r,l,d,!,\esc,[NULL]};
-
-	Pseudo code
-	char *readHeadList[shapeCount]; //List of each shape read progress. Text wraps after new line
-	uint16_t rowBufPos = 0;
-
-	//reset each shape readHead
-	i in shapeList.len()
-		readHeadList[i] = (char *)shape[i].text
-
-	//iterate 2D cols -> rows
-	for( i=0; i < col; col++ ){ 
-		for( j=0; j < row; row++ ){
-
-			//Iterate each shape by index and read each shape till shape last column
-			for( readHead in readHeadList ){
-
-				if( rowBufPos >= rowBufPos.size ){ //print if buffer is full
-					print rowBuffer;
-					rowBufPos = 0;
-				}
-
-				while( 1 ){
-
-					while( *readHead != '\esc' ){ Keep writing till escape sequence
-						rowBuffer[rowBufPos] = *readHead; // Store byte to buffer
-						
-					}
-
-					switch (*readHead) { 
-						case MARKER_JUMP:
-							readHead++; //skip marker
-							rowBufPos+= *readHead; // Skip by count stored in Jump_byte
-							break;
-						case MARKER_STYLE:
-							readHead++;
-							insertAnsiStyle(*readHead); // Insert color escape sequence
-							break;
-						case NULL:
-							goto nextShape; // break while loop
-							break;
-					}
-
-					*readHead++; //advance byte
-
-				}
-				nextShape:
-
-			}
-			print('\n')
-		}
+/**
+ * @brief decode ansi color escape sequence e.g \x1b[1;37m from AnsiCode.byte
+ */
+void decodeAnsiStyle(char *escSeq, char ansiByte){
+	KAEL_ASSERT(escSeq!=NULL);
+	if (ansiByte == 0) {
+		memcpy(escSeq,"\x1b[0m",5);
+		return;
 	}
+	AnsiCode code = {.byte=ansiByte};
+	snprintf(escSeq, 10, "\x1b[%d;%dm", code.style, code.color + AnsiModValue[code.mod]);
+}
 
-	New frame starts
+void printRowBuf(KaelRowBuffer *rowBuf){
+	KAEL_ASSERT(rowBuf!=NULL);
+	fwrite(rowBuf->s, sizeof(char), rowBuf->pos, stdout); //Print only up to overwritten part
+	fflush(stdout);
+	rowBuf->pos=0;
+}
 
-*/
-
-//These could be stored somewhere
-void generateShapes(KaelTree *shapeList, uint16_t shapeCount){
-	const uint8_t useResize = 0; //0= push, 1= resize
-	const uint16_t maxSize = 256; //0= push, 1= resize
-
-	kaelTree_alloc(shapeList, sizeof(PageShape));
-	if(useResize){
-		kaelTree_resize(shapeList, shapeCount);
-	}
-
-	uint16_t randNum = 0;
-	for(uint16_t i=0; i<shapeCount; i++){
-		PageShape tmpShape;
-		randNum = kaelRand_lcg(randNum);
-		tmpShape.pos[0]=(randNum      ) % maxSize;
-		tmpShape.pos[1]=(randNum>>8   ) % maxSize;
-
-		randNum = kaelRand_lcg(randNum);
-		tmpShape.size[0]=(randNum    ) % (maxSize - tmpShape.pos[0]);
-		tmpShape.size[1]=(randNum>>8 ) % (maxSize - tmpShape.pos[1]);
-
-		if(useResize){
-			kaelTree_set(shapeList, i, &tmpShape);
-		}else{
-			void *ptr = kaelTree_push(shapeList, &tmpShape);
-			if(NULL_CHECK(ptr)){break;}
+void printWhitespace(KaelRowBuffer *rowBuf, const uint8_t count){
+	KAEL_ASSERT(rowBuf!=NULL);
+	for(uint16_t i=0; i<count; i++){ //jump
+		if(rowBuf->pos > rowBuf->size){
+			printRowBuf(rowBuf);
 		}
+		rowBuf->s[rowBuf->pos]=' ';
+		rowBuf->pos+=1;
 	}
 }
 
+/**
+ * @brief Special instructions stored as unicode PUA
+ * 0xE0 to 0xF8
+ */
+typedef enum{
+	MARKER_JUMP = 0b11100000,
+	MARKER_STYLE = 0b11100001,
+}stringMarker;
 
-int main(){
-
-
-
-
-	static char escSeq[10];
-
-	AnsiStyle code = { .mod = FG_LO, .color = MAGENTA, .style = BOLD };
+/*
+	Private Use Area (PUA), 2-byte range: U+E000 to U+F8FF
+	Linux ANSI color escape sequences are atrociously long, up to 8 bytes '\x1b'[1;37m
+	Let us use unicode PUA BMP range U+E0_00 to U+F8_FF
+	Check if byte MSB is 1, 0x80. In this case we have either unicode or PUA sequence
 	
-	// Special case for RESET, if style is reset we return the reset code
-	if (code.style == RESET) {
-		memcpy(escSeq,"\x1b[0m",5);
-	}else{
-		snprintf(escSeq, 10, "\x1b[%d;%dm", code.style, code.color + AnsiMod[code.mod]);
+	If next byte is 0xE or 0xF, next byte is a marker, otherwise print unicode by the given length 'L', 
+	number of leading 1s set the unicode length, [0b1L...0#] [0b10######] [0b10######] ...
+	e.g. 0b11110000 has total 4 bytes, the trailing bits are part of the unicode
+	
+	Since 0xE0 to 0xF8 are 
+*/	
+void testFancyPrint(const char *textString){
+
+	//Set to very small for testing
+	const uint16_t rowBufSize = 10; 
+	char rowBufArray[rowBufSize];
+
+	KaelRowBuffer rowBuf = {
+		.s = rowBufArray,
+		.read = textString,
+		.pos = 0,
+		.size = rowBufSize
+	};
+
+	while( rowBuf.read[0] ){
+		char firstByte = rowBuf.read[0];
+
+		uint8_t isUnicode = firstByte & _unicodeMask; //unicode flag is the firstByte leading bit
+		if( isUnicode ){
+			//Unicode or PUA
+			//Parse marker
+			switch( (uint8_t)firstByte ){
+				case MARKER_JUMP:
+					rowBuf.read++; //advance to the first data byte
+					printWhitespace(&rowBuf, rowBuf.read[0]);
+					rowBuf.read++; //skip data byte
+					break;
+
+				case MARKER_STYLE:
+					rowBuf.read++;
+					char ansiBuf[8];
+					decodeAnsiStyle(ansiBuf, rowBuf.read[0]);
+					uint8_t ansiBufLen=strlen(ansiBuf);
+					if( (rowBuf.pos+ansiBufLen+1) >= rowBufSize ){ //Make sure the string fits
+						printRowBuf(&rowBuf);
+					}
+					memcpy(rowBuf.s+rowBuf.pos,ansiBuf,ansiBufLen); //copy excluding null byte
+					rowBuf.pos+=ansiBufLen;
+					break;
+
+				default: //Unkown marker or unicode
+					//Print unicode
+					//Get number of leading 1s by inverting and then counting the leading zeros
+					uint8_t unicodeLegth = 0;
+
+					//count leading 1s
+					while( (firstByte&0x80) != 0 ){
+						firstByte<<=1;
+						unicodeLegth++;
+					}
+					
+					if ((rowBuf.pos + unicodeLegth) >= rowBuf.size) {
+						printRowBuf(&rowBuf);
+					}
+					memcpy(rowBuf.s + rowBuf.pos, rowBuf.read, unicodeLegth);
+					rowBuf.pos+=unicodeLegth;
+					//Increment readhead ensuring we didn't skip null termination
+					//in case of invalid length unicode
+					while(rowBuf.read[0]){ 
+						rowBuf.read++;
+					}
+					break;
+			}
+		}else{
+			//Write to rowBuf
+			rowBuf.s[rowBuf.pos++] = firstByte;
+		}
+
+		rowBuf.read++; //Advance to next character
+
+		if( rowBuf.pos >= rowBufSize ){
+			printRowBuf(&rowBuf);
+		}
+
 	}
-	
-	printf("%sHello world%s\n", escSeq, "\x1b[0m");
+	printRowBuf(&rowBuf); //Print remaining buffer
+
+	return;
+}
+
+
+
+
+
+
+
+
+
+int main() {
+	char underLineMagenta = encodeAnsiStyle(ansiFGLow, ansiMagenta, ansiUnderline);
+
+	//Some 16-bit string address from some memory bank
+	const unsigned char textString[] = {
+		MARKER_STYLE, underLineMagenta, // Underline magenta
+		'H','e','l','l','o',
+		MARKER_JUMP, 4, // Jump 4 spaces
+		' ','W','o','r','l','d','!',
+		MARKER_STYLE,ansiReset, // Reset color
+		0xf0, 0x9f, 0x98, 0x80, // Raw binary of 0x1f600 since we can't store uint32_t 
+		'\n','\0'
+	};
+
+	testFancyPrint((char *)textString);
 
 	return 0;
-
-
-	//uint16_t viewPortPos[2]={0};
-	//uint16_t viewPortSize[2]={0};
-	
-	uint16_t shapeCount = 64;
-
-	KaelTree shapeList; 
-
-	generateShapes(&shapeList, shapeCount);
-
-	//uint8_t rowBuf[256];
-
-	kaelTree_free(&shapeList);
-	
 }
+
+
+
