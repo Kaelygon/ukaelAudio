@@ -7,25 +7,20 @@
 
 #include <stdio.h>
 
-
-//static const uint8_t _puaStart = 0xE0;
-//static const uint8_t _puaEnd   = 0xF8;
-static const uint8_t _unicodeMask = 0b10000000;
-
 /**
  * @brief fancy string print buffer
  */
 typedef struct{
-	char* s; //buffer address 
+	uint8_t* s; //buffer address 
 	uint16_t pos; //Write position of .s
 	uint16_t size; //buffer .s size
-	const char* read; //ptr to string being printed
-}KaelRowBuffer;
+	const uint8_t* read; //ptr to string being printed
+}KaelTui_RowBuffer;
 
 
 typedef enum {
 	/*Style*/
-	ansiReset 		= 0, 
+	ansiReset 		= 0xFF, // we can't have null data
 	ansiBold 		= 1,  
 	ansiUnderline 	= 4, 
 	ansiBlink 		= 5, 
@@ -41,22 +36,28 @@ typedef enum {
 	ansiMagenta = 5, 
 	ansiCyan 	= 6, 
 	ansiWhite 	= 7, 
-} AnsiCode_enum;
 
+	ansiLength 	= 7, //Maximum bytes decoded ansi esc seq can take
+} KaelTui_ansiColor;
+
+/**
+ * @brief Offsets to get fore-/background colors low and high
+ * tens place. 3*10 + ansiBlue = ansiFGLow blue
+ */
+uint8_t AnsiModValue[4] = { 
+	3, //ansiFGLow
+	4, //ansiFGHigh
+	7, //ansiBGLow
+	9, //ansiBGHigh
+};
+
+//indices of the table AnsiModValue[]
 typedef enum{
 	ansiFGLow, 
 	ansiFGHigh, 
 	ansiBGLow, 
 	ansiBGHigh, 
-}AnsiMod_enum;
-
-//Offsets to get fore-/background colors low and high
-uint8_t AnsiModValue[4] = {
-	30, //ansiFGLow
-	40, //ansiFGHigh
-	70, //ansiBGLow
-	90, //ansiBGHigh
-};
+}KaelTui_ansiMod;
 
 /**
  * @brief Ansi color code escape sequence encoded in a single byte
@@ -68,13 +69,34 @@ typedef union {
 		uint8_t style  : 3;
 	};
 	uint8_t byte;
-} AnsiCode;
+} KaelTui_ansiCode;
+
+/**
+ * @brief Special instructions stored as unicode PUA
+ * 0xE0 to 0xF8
+ * 
+ * Formatting in string
+ * | [marker]		| [data byte]     |
+ * | -----------  | --------------- |
+ * | markerJump	| [jump length]   |
+ * | markerStyle	| [ansiCode.byte] |
+ * 
+ */
+typedef enum{
+	markerJump = 0b11100000,
+	markerStyle = 0b11100001,
+}KaelTui_Marker;
+
+
+
+//------ Ansi escape sequence ------
+
 
 /**
  * @brief Encode ansi color into a single byte
  */
-char encodeAnsiStyle(uint8_t mod, uint8_t color, uint8_t style){
-	AnsiCode code = {
+char kaelTui_decodeAnsiEsc(const uint8_t mod, const uint8_t color, const uint8_t style){
+	KaelTui_ansiCode code = {
 		.mod = mod,
 		.color = color,
 		.style = style
@@ -83,159 +105,241 @@ char encodeAnsiStyle(uint8_t mod, uint8_t color, uint8_t style){
 }
 
 /**
- * @brief decode ansi color escape sequence e.g \x1b[1;37m from AnsiCode.byte
+ * @brief decode ansi color escape sequence e.g \x1b[1;37m from KaelTui_ansiCode.byte
+ * 
+ * @warning No NULL termination  
+ * 
+ * example: \esc[underline];[ansiBGLow][blue]m = "\esc4;74m"
+ * @return number of bytes written
  */
-void decodeAnsiStyle(char *escSeq, char ansiByte){
+uint8_t kaelTui_encodeAnsiEsc(uint8_t *escSeq, const uint8_t ansiByte, uint16_t offset){
 	KAEL_ASSERT(escSeq!=NULL);
-	if (ansiByte == 0) {
-		memcpy(escSeq,"\x1b[0m",5);
-		return;
+
+	if ( ansiByte == ansiReset ) {
+		escSeq[offset++]='\x1b';
+		escSeq[offset++]='[';
+		escSeq[offset++]='0';
+		escSeq[offset++]='m';
+		return 4;
 	}
-	AnsiCode code = {.byte=ansiByte};
-	snprintf(escSeq, 10, "\x1b[%d;%dm", code.style, code.color + AnsiModValue[code.mod]);
+
+	KaelTui_ansiCode code = {.byte=ansiByte};
+	escSeq[offset++]='\x1b';
+	escSeq[offset++]='[';
+	escSeq[offset++]=code.style+'0';
+	escSeq[offset++]=';';
+	escSeq[offset++]=AnsiModValue[code.mod]+'0';
+	escSeq[offset++]=code.color+'0';
+	escSeq[offset++]='m';
+	return 7;
 }
 
-void printRowBuf(KaelRowBuffer *rowBuf){
+
+
+//------ Print shape ------
+
+
+void kaelTui_printRowBuf(KaelTui_RowBuffer *rowBuf){
 	KAEL_ASSERT(rowBuf!=NULL);
-	fwrite(rowBuf->s, sizeof(char), rowBuf->pos, stdout); //Print only up to overwritten part
-	fflush(stdout);
+	//Print only up to overwritten part
+	fwrite((char *)rowBuf->s, sizeof(char), rowBuf->pos, stdout); 
 	rowBuf->pos=0;
+	return;
 }
 
-void printWhitespace(KaelRowBuffer *rowBuf, const uint8_t count){
+/**
+ * @brief Print white spaces
+*/
+void kaelTui_fillJump(KaelTui_RowBuffer *rowBuf){
 	KAEL_ASSERT(rowBuf!=NULL);
-	for(uint16_t i=0; i<count; i++){ //jump
-		if(rowBuf->pos > rowBuf->size){
-			printRowBuf(rowBuf);
+	KAEL_ASSERT(rowBuf!=0);
+	rowBuf->read++; //skip the marker
+	uint8_t jumpCount=rowBuf->read[0];
+	if(jumpCount==0){
+		return;  //NULL data
+	};
+
+	for(uint16_t i=0; i<jumpCount; i++){ //jump
+		if(rowBuf->pos >= rowBuf->size){
+			kaelTui_printRowBuf(rowBuf);
 		}
 		rowBuf->s[rowBuf->pos]=' ';
 		rowBuf->pos+=1;
 	}
+
+	rowBuf->read+=1; //skip data byte
+	return;
+}
+
+void kaelTui_printMarkerStyle(KaelTui_RowBuffer *rowBuf){
+	KAEL_ASSERT(rowBuf!=NULL);
+	KAEL_ASSERT(rowBuf!=0);
+	rowBuf->read++;
+	if(rowBuf->read[0]==0){
+		return; //NULL data
+	};
+	rowBuf->pos+=kaelTui_encodeAnsiEsc(rowBuf->s, rowBuf->read[0], rowBuf->pos);
+	return;
 }
 
 /**
- * @brief Special instructions stored as unicode PUA
- * 0xE0 to 0xF8
- */
-typedef enum{
-	MARKER_JUMP = 0b11100000,
-	MARKER_STYLE = 0b11100001,
-}stringMarker;
+	@brief print rectangle in viewport
 
-/*
 	Private Use Area (PUA), 2-byte range: U+E000 to U+F8FF
 	Linux ANSI color escape sequences are atrociously long, up to 8 bytes '\x1b'[1;37m
 	Let us use unicode PUA BMP range U+E0_00 to U+F8_FF
-	Check if byte MSB is 1, 0x80. In this case we have either unicode or PUA sequence
 	
-	If next byte is 0xE or 0xF, next byte is a marker, otherwise print unicode by the given length 'L', 
+	Check if the first byte falls in this range it is a marker
+	otherwise print unicode by the given length 'L', 
 	number of leading 1s set the unicode length, [0b1L...0#] [0b10######] [0b10######] ...
 	e.g. 0b11110000 has total 4 bytes, the trailing bits are part of the unicode
 	
 	Since 0xE0 to 0xF8 are 
 */	
-void testFancyPrint(const char *textString){
+void kaelTui_printShape(const uint8_t *textString){
+	if(NULL_CHECK(textString) || textString[0]=='\0'){return;}
 
 	//Set to very small for testing
-	const uint16_t rowBufSize = 10; 
-	char rowBufArray[rowBufSize];
+	const uint16_t rowBufSize = 255; 
+	uint8_t rowBufArray[rowBufSize];
 
-	KaelRowBuffer rowBuf = {
+	KaelTui_RowBuffer rowBuf = {
 		.s = rowBufArray,
 		.read = textString,
 		.pos = 0,
 		.size = rowBufSize
 	};
 
-	while( rowBuf.read[0] ){
-		char firstByte = rowBuf.read[0];
+	while( 1 ){
+		uint8_t firstByte = rowBuf.read[0];
 
-		uint8_t isUnicode = firstByte & _unicodeMask; //unicode flag is the firstByte leading bit
-		if( isUnicode ){
-			//Unicode or PUA
-			//Parse marker
-			switch( (uint8_t)firstByte ){
-				case MARKER_JUMP:
-					rowBuf.read++; //advance to the first data byte
-					printWhitespace(&rowBuf, rowBuf.read[0]);
-					rowBuf.read++; //skip data byte
-					break;
+		//Parse character
+		switch( (uint8_t)firstByte ){
+			case markerJump:
+				//Print number of spaces
+				kaelTui_fillJump(&rowBuf);
+				break;
 
-				case MARKER_STYLE:
-					rowBuf.read++;
-					char ansiBuf[8];
-					decodeAnsiStyle(ansiBuf, rowBuf.read[0]);
-					uint8_t ansiBufLen=strlen(ansiBuf);
-					if( (rowBuf.pos+ansiBufLen+1) >= rowBufSize ){ //Make sure the string fits
-						printRowBuf(&rowBuf);
-					}
-					memcpy(rowBuf.s+rowBuf.pos,ansiBuf,ansiBufLen); //copy excluding null byte
-					rowBuf.pos+=ansiBufLen;
-					break;
+			case markerStyle:
+				//Ansi style and color encoding
+				kaelTui_printMarkerStyle(&rowBuf);
+				break;
 
-				default: //Unkown marker or unicode
-					//Print unicode
-					//Get number of leading 1s by inverting and then counting the leading zeros
-					uint8_t unicodeLegth = 0;
+			case 0: 
+				//NULL
+				kaelTui_printRowBuf(&rowBuf);
+				fflush(stdout);
+				return;
 
-					//count leading 1s
-					while( (firstByte&0x80) != 0 ){
-						firstByte<<=1;
-						unicodeLegth++;
-					}
-					
-					if ((rowBuf.pos + unicodeLegth) >= rowBuf.size) {
-						printRowBuf(&rowBuf);
-					}
-					memcpy(rowBuf.s + rowBuf.pos, rowBuf.read, unicodeLegth);
-					rowBuf.pos+=unicodeLegth;
-					//Increment readhead ensuring we didn't skip null termination
-					//in case of invalid length unicode
-					while(rowBuf.read[0]){ 
-						rowBuf.read++;
-					}
-					break;
-			}
-		}else{
-			//Write to rowBuf
-			rowBuf.s[rowBuf.pos++] = firstByte;
-		}
+			default: 
+				//Regular characters and unicode
+				rowBuf.s[rowBuf.pos++] = firstByte;
+				break;
 
+		}				
 		rowBuf.read++; //Advance to next character
 
-		if( rowBuf.pos >= rowBufSize ){
-			printRowBuf(&rowBuf);
+		if( rowBuf.pos+ansiLength >= rowBufSize ){
+			kaelTui_printRowBuf(&rowBuf);
 		}
 
 	}
-	printRowBuf(&rowBuf); //Print remaining buffer
-
+	//This should never be reached
+	KAEL_ASSERT(0,"How did you get here?\n");
 	return;
 }
 
 
+//------ Unit test ------
 
 
+void unit_genRandomShape(char *bigText, uint32_t charCount, uint8_t randNum[3]){
+	for(uint32_t i=0; i<charCount; i++){
+		uint8_t symbol=0;
+		uint8_t legalString=1;
+
+		symbol = kaelRand_lcg24(randNum);
+		symbol+= symbol==0;
+
+		if(i%3==0){
+			bigText[i++]=(char)markerStyle;
+			if(i>=charCount){break;}
+			bigText[i]=symbol;
+
+		}else{
+			if(legalString){
+				uint8_t type = (randNum[1]>>6)&0b11;
+				switch(type){
+					case 0:
+						symbol = symbol*('9'-'0')/255 + '0';
+						break;
+					case 1:
+						symbol = symbol*('Z'-'A')/255 + 'A';
+						break;
+					case 2:
+						symbol = symbol*('z'-'a')/255 + 'a';
+						break;
+					case 3:
+						symbol = ' ';
+						break;
+				}
+			}
+
+			bigText[i]=symbol;
+		}
+	}
+	if(charCount){
+		bigText[charCount-1]='\0';
+	}
+	return;
+}
 
 
+void unit_kaelTuiPrintShape(uint8_t randNum[3]){
 
+	//Far too overkill benchmark
+	uint32_t charCount=1U<<20;
+	char *bigText = NULL;
+	bigText = malloc(charCount);
 
+	unit_genRandomShape(bigText,charCount,randNum);
+
+	uint64_t startTime = __rdtsc();
+	kaelTui_printShape((uint8_t *)bigText);
+	uint64_t endTime = __rdtsc();
+	free(bigText);
+
+	if(0){
+		uint8_t ansiLen = 8;
+		uint8_t ansiResetColor[ansiLen];
+		memset(ansiResetColor,0,ansiLen);
+		kaelTui_encodeAnsiEsc(ansiResetColor, ansiReset, 0);
+		printf("%stime %lu\n", ansiResetColor, endTime-startTime);
+
+		//print text
+		char underLineMagenta = kaelTui_decodeAnsiEsc(ansiFGLow, ansiMagenta, ansiBold);
+	
+		const uint8_t textString[] = {
+			markerStyle,ansiReset, // Reset color
+			markerStyle, underLineMagenta, // Underline magenta
+			'H','e','l','l','o',
+			markerJump, 4, // Jump 4 spaces
+			' ','W','o','r','l','d','!',
+			markerStyle,ansiReset,
+			0xF0, 0x9F, 0x90, 0x89, // Raw binary since we can't store uint32_t 
+			'\n','\0'
+		};
+		
+		kaelTui_printShape(textString);
+	}
+}
 
 int main() {
-	char underLineMagenta = encodeAnsiStyle(ansiFGLow, ansiMagenta, ansiUnderline);
 
-	//Some 16-bit string address from some memory bank
-	const unsigned char textString[] = {
-		MARKER_STYLE, underLineMagenta, // Underline magenta
-		'H','e','l','l','o',
-		MARKER_JUMP, 4, // Jump 4 spaces
-		' ','W','o','r','l','d','!',
-		MARKER_STYLE,ansiReset, // Reset color
-		0xf0, 0x9f, 0x98, 0x80, // Raw binary of 0x1f600 since we can't store uint32_t 
-		'\n','\0'
-	};
-
-	testFancyPrint((char *)textString);
+	uint8_t randNum[3]={31,82,84};
+	while(1){
+		unit_kaelTuiPrintShape(randNum);
+	}
 
 	return 0;
 }

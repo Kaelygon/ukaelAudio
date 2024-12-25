@@ -117,8 +117,13 @@ if(BUILD_16_BIT)
 	set(DEFAULT_FLAGS "${DEFAULT_FLAGS}" "-m16")
 endif()
 
+# Exclude flags
+# These don't seem important? Some seem clang specific as GCC gives no warnings 
+#set(EXCLUDE_FLAGS "-Wno-newline-eof" "-Wno-gnu-zero-variadic-macro-arguments" "-Wno-unknown-warning-option" "-Wno-gnu-binary-literal" "-Wno-undefined-inline" "-Wno-static-in-inline")
+#set(DEFAULT_FLAGS "${DEFAULT_FLAGS}" "${EXCLUDE_FLAGS}")
+
 set(RELEASE_FLAGS "${DEFAULT_FLAGS}" "-Os" "-flto") # RELEASE
-set(DEBUG_FLAGS "${DEFAULT_FLAGS}" "-D_GLIBCXX_DEBUG" "-O0") # DEBUG # "-fstack-usage" "-fno-omit-frame-pointer" # These two are commented due to code-oss midebugger bug
+set(DEBUG_FLAGS "${DEFAULT_FLAGS}" "-D_GLIBCXX_DEBUG" "-O0" "-Walloc-zero") # DEBUG # "-fstack-usage" "-fno-omit-frame-pointer" # These two are commented due to code-oss midebugger bug
 set(ASAN_FLAGS "${DEBUG_FLAGS}" "-fsanitize=undefined,address" "-fno-omit-frame-pointer") # ASAN same as debug flags
 
 
