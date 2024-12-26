@@ -1,8 +1,10 @@
 
 # ukaelAudio
 
-Emulating system limited to uint8_t and uint16_t
-Potentially further limit simulated addressable space to 16-bit bits and use memory banking.
+This codebase emulates a system limited to uint8_t and uint16_t
+All pointers are still stored as size_t, since uint16_t pointers would require actually emulating a 16-bit system. 
+I still wish to keep this project x86-64 compatible, while sticking within unsigned 16-bit arithmetic as much as possible.
+
 
 At current stage the program doesn't have any functionality. I am still figuring out what tools I will need and developing terminal system as I go.
 

@@ -116,21 +116,21 @@ uint8_t kaelTui_encodeAnsiEsc(uint8_t *escSeq, const uint8_t ansiByte, uint16_t 
 	KAEL_ASSERT(escSeq!=NULL);
 
 	if ( ansiByte == ansiReset ) {
-		escSeq[offset++]='\x1b';
-		escSeq[offset++]='[';
-		escSeq[offset++]='0';
-		escSeq[offset++]='m';
+		escSeq[offset+0]='\x1b';
+		escSeq[offset+1]='[';
+		escSeq[offset+2]='0';
+		escSeq[offset+3]='m';
 		return 4;
 	}
 
 	KaelTui_ansiCode code = {.byte=ansiByte};
-	escSeq[offset++]='\x1b';
-	escSeq[offset++]='[';
-	escSeq[offset++]=code.style+'0';
-	escSeq[offset++]=';';
-	escSeq[offset++]=AnsiModValue[code.mod]+'0';
-	escSeq[offset++]=code.color+'0';
-	escSeq[offset++]='m';
+	escSeq[offset+0]='\x1b';
+	escSeq[offset+1]='[';
+	escSeq[offset+2]=code.style+'0';
+	escSeq[offset+3]=';';
+	escSeq[offset+4]=AnsiModValue[code.mod]+'0';
+	escSeq[offset+5]=code.color+'0';
+	escSeq[offset+6]='m';
 	return 7;
 }
 
@@ -196,7 +196,10 @@ void kaelTui_printMarkerStyle(KaelTui_RowBuffer *rowBuf){
 	
 	Since 0xE0 to 0xF8 are 
 */	
-void kaelTui_printShape(const uint8_t *textString){
+/**
+ * TODO: convert this to use page and its shapes
+ */
+void kaelTui_printPage(const uint8_t *textString){
 	if(NULL_CHECK(textString) || textString[0]=='\0'){return;}
 
 	//Set to very small for testing
@@ -239,36 +242,57 @@ void kaelTui_printShape(const uint8_t *textString){
 		}				
 		rowBuf.read++; //Advance to next character
 
+		//print early to reserve space for ansi escape sequence
 		if( rowBuf.pos+ansiLength >= rowBufSize ){
 			kaelTui_printRowBuf(&rowBuf);
 		}
 
 	}
-	//This should never be reached
-	KAEL_ASSERT(0,"How did you get here?\n");
-	return;
 }
 
 
 //------ Unit test ------
+typedef struct{
+	uint16_t pos[2]; //col by row
+	uint16_t size[2];
+	uint8_t *string;
+	uint16_t readHead;
+}KaelBook_shape;
 
+typedef struct{
+	KaelTree shape;
+}KaelBook_page;
 
-void unit_genRandomShape(char *bigText, uint32_t charCount, uint8_t randNum[3]){
+KaelBook_shape unit_genRandomShape(uint8_t randNum[3], uint16_t cols, uint16_t rows){
+	KaelBook_shape shape=(KaelBook_shape){0};
+
+	kaelRand_lcg24(randNum);
+	shape.pos[0]	= randNum[0]%cols;
+	shape.pos[1]	= randNum[1]%rows;
+	shape.size[0]	= randNum[2]%(cols-shape.pos[0]);
+	kaelRand_lcg24(randNum);
+	shape.size[1]	= randNum[0]%(rows-shape.pos[0]);
+
+	uint16_t charCount = shape.size[0] * shape.size[1];
+
+	//Allocate shape string
+	uint8_t *tmpString = malloc(charCount*sizeof(uint8_t));
+	if(tmpString==NULL){return (KaelBook_shape){0};}
+
 	for(uint32_t i=0; i<charCount; i++){
 		uint8_t symbol=0;
 		uint8_t legalString=1;
 
-		symbol = kaelRand_lcg24(randNum);
+		symbol = randNum[1];
 		symbol+= symbol==0;
 
 		if(i%3==0){
-			bigText[i++]=(char)markerStyle;
+			tmpString[i++]=markerStyle;
 			if(i>=charCount){break;}
-			bigText[i]=symbol;
-
+			tmpString[i]=symbol;
 		}else{
 			if(legalString){
-				uint8_t type = (randNum[1]>>6)&0b11;
+				uint8_t type = (randNum[2]>>6)&0b11;
 				switch(type){
 					case 0:
 						symbol = symbol*('9'-'0')/255 + '0';
@@ -284,31 +308,45 @@ void unit_genRandomShape(char *bigText, uint32_t charCount, uint8_t randNum[3]){
 						break;
 				}
 			}
-
-			bigText[i]=symbol;
+			tmpString[i]=symbol;
 		}
 	}
 	if(charCount){
-		bigText[charCount-1]='\0';
+		tmpString[charCount-1]='\0';
 	}
-	return;
+	shape.string = tmpString;
+
+	return shape;
 }
 
 
-void unit_kaelTuiPrintShape(uint8_t randNum[3]){
+void unit_kaelTuiPrintPage(uint8_t randNum[3]){
+	uint16_t shapeCount=2;
+	uint16_t cols=128;
+	uint16_t rows=32;
 
-	//Far too overkill benchmark
-	uint32_t charCount=1U<<20;
-	char *bigText = NULL;
-	bigText = malloc(charCount);
+	KaelBook_page page;
+	kaelTree_alloc(&page.shape, sizeof(KaelBook_page));
 
-	unit_genRandomShape(bigText,charCount,randNum);
+	//Generate shapes
+	for(uint16_t i=0; i<shapeCount; i++){
+		KaelBook_shape tmpShape = unit_genRandomShape(randNum,cols,rows);
+		kaelTree_push(&page.shape, &tmpShape);
+	}
 
-	uint64_t startTime = __rdtsc();
-	kaelTui_printShape((uint8_t *)bigText);
-	uint64_t endTime = __rdtsc();
-	free(bigText);
+	//uint64_t startTime = __rdtsc();
+	//kaelTui_printPage(page);
+	//uint64_t endTime = __rdtsc();
 
+
+	while(!kaelTree_empty(&page.shape)){
+		KaelBook_shape *tmpShape = kaelTree_back(&page.shape);
+		free(tmpShape->string);
+		kaelTree_pop(&page.shape);
+	}
+	kaelTree_free(&page.shape);
+
+	/*
 	if(0){
 		uint8_t ansiLen = 8;
 		uint8_t ansiResetColor[ansiLen];
@@ -330,16 +368,15 @@ void unit_kaelTuiPrintShape(uint8_t randNum[3]){
 			'\n','\0'
 		};
 		
-		kaelTui_printShape(textString);
+		kaelTui_printPage(textString);
 	}
+	*/
 }
 
 int main() {
 
 	uint8_t randNum[3]={31,82,84};
-	while(1){
-		unit_kaelTuiPrintShape(randNum);
-	}
+	unit_kaelTuiPrintPage(randNum);
 
 	return 0;
 }

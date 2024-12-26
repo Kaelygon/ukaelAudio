@@ -8,10 +8,9 @@
 #include <unistd.h> 
 #include <omp.h>
 
-//#include "kaelygon/math/math.h"
-//#include "kaelygon/math/rand.h"        
-//#include "kaelygon/math/base256.h"
+#include "kaelygon/math/math.h"
 
+#include <math.h>
 #include <omp.h>
 #include "./kaelRandTesting.h"
 #include "./k32/k32.h"

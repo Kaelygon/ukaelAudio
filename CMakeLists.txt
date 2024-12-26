@@ -96,14 +96,15 @@ if(OMP_ENABLED)
 	set(FLAGS ${FLAGS} ${OpenMP_CXX_FLAGS})
 endif()
 
-
 ### Find packages
 if(NOT DISABLE_AUDIO)
 	find_package(PkgConfig REQUIRED)
 	find_package(ALSA REQUIRED)
 	pkg_check_modules(PKG_PipeWire REQUIRED IMPORTED_TARGET libpipewire-0.3)
-	set(LINK_LIBRARIES "${ALSA_LIBRARIES}" "${PIPESWIRE_LIBRARIES}" "PkgConfig::PKG_PipeWire")
+	set(LINK_LIBRARIES "${ALSA_LIBRARIES}" "${PIPESWIRE_LIBRARIES}" "PkgConfig::PKG_PipeWire" "-lm")
 endif()
+
+set(LINK_LIBRARIES "${LINK_LIBRARIES}" "-lm")
 
 
 ###### Choose GCC flags
@@ -111,7 +112,7 @@ endif()
 
 # Set optimization or debugger flags
 set(CMAKE_BUILD_TYPE Debug)
-set(DEFAULT_FLAGS "-g" "-Wall" "-Wextra" "-pedantic")
+set(DEFAULT_FLAGS "-g" "-Wall" "-Wextra" "-pedantic" "-lpthread")
 
 if(BUILD_16_BIT)
 	set(DEFAULT_FLAGS "${DEFAULT_FLAGS}" "-m16")

@@ -11,6 +11,7 @@ Verify single unit
 #include <omp.h> //Valgrind will claim OMP leaking memory
 
 
+#include <math.h>
 #include "./include/kaelRandTesting.h"
 #include "./include/kaelRandTrials.h"
 #include "./include/k32/k32.h"

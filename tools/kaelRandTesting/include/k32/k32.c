@@ -368,7 +368,7 @@ void k32_seed(kael32_t *base, char *cstr){
 	if(NULL_CHECK(base)){return;}
 	memset(&base->s,0,sizeof(uint8_t)*KAEL32_BYTES);
 	if(cstr==NULL){return;} //Valid use of NULL
-	kaelRand_hash( cstr, base->s, KAEL32_BYTES );
+	kaelRand_hash( base->s, KAEL32_BYTES, cstr );
 }
 
 #if __SIZEOF_POINTER__>=4
