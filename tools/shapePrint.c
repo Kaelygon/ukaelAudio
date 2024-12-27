@@ -14,7 +14,7 @@ typedef struct{
 	uint8_t* s; //buffer address 
 	uint16_t pos; //Write position of .s
 	uint16_t size; //buffer .s size
-	const uint8_t* read; //ptr to string being printed
+	const uint8_t* read; //string char index being read
 }KaelTui_RowBuffer;
 
 
@@ -150,11 +150,9 @@ void kaelTui_printRowBuf(KaelTui_RowBuffer *rowBuf){
 /**
  * @brief Print white spaces
 */
-void kaelTui_fillJump(KaelTui_RowBuffer *rowBuf){
+void kaelTui_fillJump(KaelTui_RowBuffer *rowBuf, uint16_t jumpCount){
 	KAEL_ASSERT(rowBuf!=NULL);
 	KAEL_ASSERT(rowBuf!=0);
-	rowBuf->read++; //skip the marker
-	uint8_t jumpCount=rowBuf->read[0];
 	if(jumpCount==0){
 		return;  //NULL data
 	};
@@ -166,21 +164,164 @@ void kaelTui_fillJump(KaelTui_RowBuffer *rowBuf){
 		rowBuf->s[rowBuf->pos]=' ';
 		rowBuf->pos+=1;
 	}
-
-	rowBuf->read+=1; //skip data byte
 	return;
 }
 
-void kaelTui_printMarkerStyle(KaelTui_RowBuffer *rowBuf){
+void kaelTui_printMarkerStyle(KaelTui_RowBuffer *rowBuf, uint8_t rawByte){
 	KAEL_ASSERT(rowBuf!=NULL);
 	KAEL_ASSERT(rowBuf!=0);
-	rowBuf->read++;
-	if(rowBuf->read[0]==0){
+	if(rawByte==0){
 		return; //NULL data
 	};
-	rowBuf->pos+=kaelTui_encodeAnsiEsc(rowBuf->s, rowBuf->read[0], rowBuf->pos);
+	rowBuf->pos+=kaelTui_encodeAnsiEsc(rowBuf->s, rawByte, rowBuf->pos);
 	return;
 }
+
+
+typedef struct{
+	uint16_t pos[2]; //col by row
+	uint16_t size[2];
+	uint8_t *string;
+	uint16_t readHead;
+}KaelBook_shape;
+
+typedef struct{
+	KaelTree shape;
+	uint16_t vcols; //virtual columns
+	uint16_t vrows; //virtual rows
+}KaelBook_page;
+
+
+
+//fetch page shapes on row
+uint16_t kaelTui_getRowShapes( const KaelBook_page *page, KaelTree *shapeList, uint16_t row ){
+	uint16_t shapeCount=0;
+	KaelBook_shape *shape;
+
+	for(uint16_t i=0; i < kaelTree_length(&page->shape); i++){ 
+		shape = kaelTree_get(&page->shape, i);
+
+		uint16_t shapeStartRow = shape->pos[1];
+		uint16_t shapeEndRow = shape->pos[1] + shape->size[1];
+		uint8_t condition = row >= shapeStartRow && row < shapeEndRow; //Copy pointer to pointer
+
+		if( condition ){ //If shape overlaps with row
+			void* isValid = kaelTree_push(shapeList, &i); 
+			if(isValid){
+				shapeCount++;
+			}
+		}
+
+	}
+	return shapeCount;
+}
+
+void kaelTui_printRow( const KaelBook_page *page, KaelTui_RowBuffer *rowBuf, KaelTree *shapeIndexList, uint8_t * readHeadStart, uint16_t currentCol, uint16_t currentRow ){
+	//Reset index for each row
+	kaelTree_resize(shapeIndexList, 0);
+
+	uint16_t listIndex=0;
+	uint16_t indexCount=0;
+
+	indexCount = kaelTui_getRowShapes( page, shapeIndexList, currentRow);
+
+	uint16_t shapeColPos=0;
+	KaelBook_shape *shape = NULL;
+
+	while( listIndex<=indexCount && indexCount!=0 ){
+
+		//next shape
+		if( shape==NULL || shapeColPos >= shape->size[0] ){ 
+
+			if( listIndex>=indexCount){
+				break; 
+			}
+			shapeColPos=0;
+			
+			//copy readhead progress to shape
+			if(shape!=NULL){
+				shape->readHead+= rowBuf->read - readHeadStart;
+			}
+			
+			//next shape
+			uint16_t shapeIndex = *(uint16_t *)kaelTree_get(shapeIndexList, listIndex);
+			shape = (KaelBook_shape *)kaelTree_get(&page->shape, shapeIndex);
+			listIndex++;
+			if(shape==NULL){
+				break;
+			}
+
+			//continue reading shape string at shape readhead
+			rowBuf->read = (uint8_t *)shape->string + shape->readHead;
+			readHeadStart = (uint8_t *)rowBuf->read;
+
+			//jump to next shape
+			if( currentCol < shape->pos[0] ){
+				uint16_t jumpCount = shape->pos[0]-currentCol;
+				kaelTui_printMarkerStyle(rowBuf, ansiReset);
+				kaelTui_fillJump(rowBuf, jumpCount);
+
+				currentCol+=jumpCount;
+			}
+
+		}
+
+		//if past last column
+		if(currentCol>=page->vcols){
+			break;
+		}
+
+		//Parse character
+		switch( (uint8_t)rowBuf->read[0] ){
+			case markerJump:
+				//Print number of spaces
+				rowBuf->read++; //skip the marker
+				uint8_t jumpCount = kaelMath_min( rowBuf->read[0], page->vcols - currentCol );
+				kaelTui_fillJump(rowBuf, jumpCount);
+				currentCol+=jumpCount;
+				break;
+
+			case markerStyle:
+				//Ansi style and color encoding
+				rowBuf->read++;
+				kaelTui_printMarkerStyle(rowBuf, rowBuf->read[0]);
+				break;
+
+			case 0: 
+				//NULL, invoke nextshape
+				shape=NULL;
+				break;
+
+			default: 
+				//Regular characters (and unicode if it's ever supported)
+				rowBuf->s[rowBuf->pos++] = rowBuf->read[0];
+				//non zero character increments
+				currentCol++;
+				shapeColPos++;
+				break;
+		}
+		rowBuf->read++;
+
+		//reserve ansiEscSeq + ansiReset + '\n' 
+		if( rowBuf->pos+2*ansiLength >= rowBuf->size ){
+			kaelTui_printRowBuf(rowBuf);
+		}
+
+	}
+
+	//copy readhead progress to shape
+	if(shape!=NULL){
+		shape->readHead+= rowBuf->read - readHeadStart;
+	}
+			
+	kaelTui_printMarkerStyle(rowBuf, ansiReset);
+	currentCol=0;
+
+	//Newline starts
+	rowBuf->s[rowBuf->pos++] = '\n';
+	kaelTui_printRowBuf(rowBuf);
+}
+
 
 /**
 	@brief print rectangle in viewport
@@ -196,103 +337,68 @@ void kaelTui_printMarkerStyle(KaelTui_RowBuffer *rowBuf){
 	
 	Since 0xE0 to 0xF8 are 
 */	
-/**
- * TODO: convert this to use page and its shapes
- */
-void kaelTui_printPage(const uint8_t *textString){
-	if(NULL_CHECK(textString) || textString[0]=='\0'){return;}
-
-	//Set to very small for testing
-	const uint16_t rowBufSize = 255; 
-	uint8_t rowBufArray[rowBufSize];
-
-	KaelTui_RowBuffer rowBuf = {
-		.s = rowBufArray,
-		.read = textString,
-		.pos = 0,
-		.size = rowBufSize
-	};
-
-	while( 1 ){
-		uint8_t firstByte = rowBuf.read[0];
-
-		//Parse character
-		switch( (uint8_t)firstByte ){
-			case markerJump:
-				//Print number of spaces
-				kaelTui_fillJump(&rowBuf);
-				break;
-
-			case markerStyle:
-				//Ansi style and color encoding
-				kaelTui_printMarkerStyle(&rowBuf);
-				break;
-
-			case 0: 
-				//NULL
-				kaelTui_printRowBuf(&rowBuf);
-				fflush(stdout);
-				return;
-
-			default: 
-				//Regular characters and unicode
-				rowBuf.s[rowBuf.pos++] = firstByte;
-				break;
-
-		}				
-		rowBuf.read++; //Advance to next character
-
-		//print early to reserve space for ansi escape sequence
-		if( rowBuf.pos+ansiLength >= rowBufSize ){
-			kaelTui_printRowBuf(&rowBuf);
-		}
-
+void kaelTui_printPage( const KaelBook_page *page, KaelTui_RowBuffer *rowBuf ){
+	if(kaelTree_empty(&page->shape) || page->vcols==0 || page->vrows==0){
+		return;
 	}
+
+	KaelTree shapeIndexList;
+	kaelTree_alloc(&shapeIndexList, sizeof(uint16_t));
+
+	uint16_t currentCol=0;
+	uint8_t *readHeadStart=0x0;
+
+	//print page row by row by searching overlapping shapes on each row
+	for(uint16_t currentRow=0; currentRow<page->vrows; currentRow++){
+		kaelTui_printRow( page, rowBuf, &shapeIndexList, readHeadStart, currentCol, currentRow );
+	}
+
+	//page ends
+	kaelTree_free(&shapeIndexList);
+	fflush(stdout);
 }
 
-
-//------ Unit test ------
-typedef struct{
-	uint16_t pos[2]; //col by row
-	uint16_t size[2];
-	uint8_t *string;
-	uint16_t readHead;
-}KaelBook_shape;
-
-typedef struct{
-	KaelTree shape;
-}KaelBook_page;
-
-KaelBook_shape unit_genRandomShape(uint8_t randNum[3], uint16_t cols, uint16_t rows){
+KaelBook_shape unit_genRandomShape(uint8_t randNum[3], const uint16_t cols, const uint16_t rows){
 	KaelBook_shape shape=(KaelBook_shape){0};
+
 
 	kaelRand_lcg24(randNum);
 	shape.pos[0]	= randNum[0]%cols;
 	shape.pos[1]	= randNum[1]%rows;
-	shape.size[0]	= randNum[2]%(cols-shape.pos[0]);
-	kaelRand_lcg24(randNum);
-	shape.size[1]	= randNum[0]%(rows-shape.pos[0]);
 
-	uint16_t charCount = shape.size[0] * shape.size[1];
+	uint16_t maxCols = cols-shape.pos[0];
+	uint16_t maxRows = rows-shape.pos[0];
+
+	maxCols+= maxCols==0;
+	maxRows+= maxRows==0;
+
+	shape.size[0]	= randNum[2]%(maxCols)+1;
+	kaelRand_lcg24(randNum);
+	shape.size[1]	= randNum[0]%(maxRows)+1;
+
+	uint16_t charCount = 3 * shape.size[0] * shape.size[1];
 
 	//Allocate shape string
-	uint8_t *tmpString = malloc(charCount*sizeof(uint8_t));
+	uint8_t *tmpString = calloc(charCount+1, sizeof(uint8_t));
 	if(tmpString==NULL){return (KaelBook_shape){0};}
 
 	for(uint32_t i=0; i<charCount; i++){
 		uint8_t symbol=0;
 		uint8_t legalString=1;
 
-		symbol = randNum[1];
+		kaelRand_lcg24(randNum);
+		symbol = randNum[2];
 		symbol+= symbol==0;
 
 		if(i%3==0){
 			tmpString[i++]=markerStyle;
-			if(i>=charCount){break;}
+			if(i>=charCount){
+				break;
+			}
 			tmpString[i]=symbol;
 		}else{
 			if(legalString){
-				uint8_t type = (randNum[2]>>6)&0b11;
+				uint8_t type = (randNum[1]>>6)&0b11;
 				switch(type){
 					case 0:
 						symbol = symbol*('9'-'0')/255 + '0';
@@ -308,36 +414,111 @@ KaelBook_shape unit_genRandomShape(uint8_t randNum[3], uint16_t cols, uint16_t r
 						break;
 				}
 			}
-			tmpString[i]=symbol;
+			tmpString[i] = symbol;
 		}
 	}
 	if(charCount){
-		tmpString[charCount-1]='\0';
+		tmpString[charCount]='\0';
 	}
+	shape.string = tmpString;
+
+	//for(uint16_t i=0; i<strlen((char *)tmpString); i++){
+	//	printf("%d ", tmpString[i]);
+	//}
+
+	return shape;
+}
+
+
+
+
+//------ Unit test ------
+
+KaelBook_shape unit_genCheckboardShape(uint8_t randNum[3], const uint16_t posRow, const uint16_t posCol, const uint16_t sizeRow, const uint16_t sizeCol ){
+	KaelBook_shape shape=(KaelBook_shape){0};
+
+	kaelRand_lcg24(randNum);
+	shape.pos[0]	= posRow;
+	shape.pos[1]	= posCol;
+
+	shape.size[0]	= sizeRow;
+	shape.size[1]	= sizeCol;
+
+	uint16_t symbols = 3 * shape.size[0] * shape.size[1];
+
+	//Allocate shape string
+	uint8_t *tmpString = calloc(symbols+1, sizeof(uint8_t));
+	if(tmpString==NULL){return (KaelBook_shape){0};}
+
+	//non-zero width character count
+	uint16_t nzwChar = 0;
+	
+	uint8_t gridSize[2] = {4,2};
+	for(uint16_t i=0; i<symbols; i++ ){
+		uint16_t x = nzwChar%shape.size[0];
+		uint16_t y = nzwChar/shape.size[0];
+		uint8_t condition = (x/gridSize[0] + y/gridSize[1])%2;
+
+		KaelTui_ansiCode stStyle = { .mod=AnsiModValue[ansiBGHigh], .color=ansiMagenta, .style=ansiBold };
+		KaelTui_ansiCode ndStyle = { .mod=AnsiModValue[ansiBGHigh], .color=ansiWhite  , .style=ansiBold };
+
+		if(i%3==0){
+			tmpString[i++]=markerStyle;
+			if(i>=symbols){
+				break;
+			}
+			tmpString[i] = condition ? stStyle.byte : ndStyle.byte;
+			
+		}else{
+
+			tmpString[i] = condition ? '#' : '@';
+			nzwChar++;
+
+			//printf("%c", tmpString[i]);
+			//if(x==shape.size[0]-1){printf("\n");}
+		}
+	}
+	//printf("\n\n");
+	tmpString[symbols]='\0';
 	shape.string = tmpString;
 
 	return shape;
 }
 
 
+
 void unit_kaelTuiPrintPage(uint8_t randNum[3]){
-	uint16_t shapeCount=2;
-	uint16_t cols=128;
-	uint16_t rows=32;
 
 	KaelBook_page page;
-	kaelTree_alloc(&page.shape, sizeof(KaelBook_page));
+	page.vcols = 128;
+	page.vrows = 24;
+
+	kaelTree_alloc(&page.shape, sizeof(KaelBook_shape));
 
 	//Generate shapes
-	for(uint16_t i=0; i<shapeCount; i++){
-		KaelBook_shape tmpShape = unit_genRandomShape(randNum,cols,rows);
+	KaelBook_shape tmpShape;
+	
+	tmpShape = unit_genCheckboardShape(randNum,0,0,16,8);
+	kaelTree_push(&page.shape, &tmpShape);
+
+	tmpShape = unit_genCheckboardShape(randNum,20,10,12,6);
+	kaelTree_push(&page.shape, &tmpShape);
+
+	for(uint8_t i=0; i<3; i++){
+		tmpShape = unit_genRandomShape(randNum, page.vcols, page.vrows);
 		kaelTree_push(&page.shape, &tmpShape);
 	}
 
-	//uint64_t startTime = __rdtsc();
-	//kaelTui_printPage(page);
-	//uint64_t endTime = __rdtsc();
+	KaelTui_RowBuffer rowBuf = {
+		.s = (uint8_t[256]){0},
+		.read = NULL,
+		.pos = 0,
+		.size = 256
+	};
 
+	uint64_t startTime = __rdtsc();
+	kaelTui_printPage(&page, &rowBuf);
+	uint64_t endTime = __rdtsc();
 
 	while(!kaelTree_empty(&page.shape)){
 		KaelBook_shape *tmpShape = kaelTree_back(&page.shape);
@@ -346,31 +527,12 @@ void unit_kaelTuiPrintPage(uint8_t randNum[3]){
 	}
 	kaelTree_free(&page.shape);
 
-	/*
-	if(0){
-		uint8_t ansiLen = 8;
-		uint8_t ansiResetColor[ansiLen];
-		memset(ansiResetColor,0,ansiLen);
-		kaelTui_encodeAnsiEsc(ansiResetColor, ansiReset, 0);
-		printf("%stime %lu\n", ansiResetColor, endTime-startTime);
-
-		//print text
-		char underLineMagenta = kaelTui_decodeAnsiEsc(ansiFGLow, ansiMagenta, ansiBold);
+	uint8_t ansiLen = 8;
+	uint8_t ansiResetColor[ansiLen];
+	memset(ansiResetColor,0,ansiLen);
+	kaelTui_encodeAnsiEsc(ansiResetColor, ansiReset, 0);
+	printf("%s\ntime %lu\n", ansiResetColor, endTime-startTime);
 	
-		const uint8_t textString[] = {
-			markerStyle,ansiReset, // Reset color
-			markerStyle, underLineMagenta, // Underline magenta
-			'H','e','l','l','o',
-			markerJump, 4, // Jump 4 spaces
-			' ','W','o','r','l','d','!',
-			markerStyle,ansiReset,
-			0xF0, 0x9F, 0x90, 0x89, // Raw binary since we can't store uint32_t 
-			'\n','\0'
-		};
-		
-		kaelTui_printPage(textString);
-	}
-	*/
 }
 
 int main() {
