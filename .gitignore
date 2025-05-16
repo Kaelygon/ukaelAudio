@@ -10,3 +10,4 @@
 /vgcore.*
 /doxygen/*
 /*.log
+/assets

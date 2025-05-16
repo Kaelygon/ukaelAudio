@@ -165,7 +165,26 @@
     "kaeltreememunit.h": "c",
     "kaelrandunit.h": "c",
     "kaelterminalunit.h": "c",
-    "kaelrelease.h": "c"
+    "kaelrelease.h": "c",
+    "kaelrandtrials.h": "c",
+    "base256.h": "c",
+    "k32.h": "c",
+    "kaeldebug.h": "c",
+    "kaelstringunit.h": "c",
+    "kaeldefines.h": "c",
+    "releasetarget.h": "c",
+    "k32u8.h": "c",
+    "rtc.h": "c",
+    "assert.h": "c",
+    "debugtarget.h": "c",
+    "rdtscclock.h": "c",
+    "clocktypes.h": "c",
+    "clockshared.h": "c",
+    "kaelmacrosshared.h": "c",
+    "time.h": "c",
+    "cpuid.h": "c",
+    "tree.h": "c",
+    "omp.h": "c"
   },
   "makefile.launchConfigurations": [
     {

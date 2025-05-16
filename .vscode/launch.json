@@ -15,11 +15,13 @@
       "preLaunchTask": "CMake (active DEBUG)",
       "miDebuggerPath": "/usr/bin/gdb",
       "setupCommands": [
+
         {
           "description": "Enable pretty-printing for gdb",
           "text": "-enable-pretty-printing",
           "ignoreFailures": true
         }
+
       ]
     },
     {
@@ -56,17 +58,17 @@
       ]
     },
     {
-      "name": "CMake active OPTIMIZED",
+      "name": "CMake active RELEASE",
       "type": "cppdbg",
       "request": "launch",
-      "program": "${workspaceFolder}/build/${fileBasenameNoExtension}_OPTIMIZED",
+      "program": "${workspaceFolder}/build/${fileBasenameNoExtension}_RELEASE",
       "args": [],
       "stopAtEntry": false,
       "cwd": "${workspaceFolder}",
       "environment": [],
       "externalConsole": false,
       "MIMode": "gdb",
-      "preLaunchTask": "CMake (active OPTIMIZED)",
+      "preLaunchTask": "CMake (active RELEASE)",
       "miDebuggerPath": "/usr/bin/gdb",
       "setupCommands": [
         {
@@ -131,17 +133,17 @@
       ]
     },
     {
-      "name": "CMake ALL OPTIMIZED",
+      "name": "CMake ALL RELEASE",
       "type": "cppdbg",
       "request": "launch",
-      "program": "${workspaceFolder}/build/${fileBasenameNoExtension}_OPTIMIZED",
+      "program": "${workspaceFolder}/build/${fileBasenameNoExtension}_RELEASE",
       "args": [],
       "stopAtEntry": false,
       "cwd": "${workspaceFolder}",
       "environment": [],
       "externalConsole": false,
       "MIMode": "gdb",
-      "preLaunchTask": "CMake (ALL OPTIMIZED)",
+      "preLaunchTask": "CMake (ALL RELEASE)",
       "miDebuggerPath": "/usr/bin/gdb",
       "setupCommands": [
         {

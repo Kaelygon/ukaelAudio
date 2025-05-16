@@ -29,12 +29,12 @@
             "problemMatcher": ["$gcc"]
         },
         {
-            "label": "CMake (active OPTIMIZED)",
+            "label": "CMake (active RELEASE)",
             "type": "shell",
             "command": "${workspaceFolder}/CMakeBuild.sh",
             "args": [
                 "ACTIVE",
-                "OPTIMIZED",
+                "RELEASE",
                 "./${relativeFileDirname}",
                 "${fileBasenameNoExtension}",
             ],
@@ -68,12 +68,12 @@
             "problemMatcher": ["$gcc"]
         },
         {
-            "label": "CMake (ALL OPTIMIZED)",
+            "label": "CMake (ALL RELEASE)",
             "type": "shell",
             "command": "${workspaceFolder}/CMakeBuild.sh",
             "args": [
                 "ALL",
-                "OPTIMIZED",
+                "RELEASE",
                 "./${relativeFileDirname}",
                 "${fileBasenameNoExtension}",
             ],

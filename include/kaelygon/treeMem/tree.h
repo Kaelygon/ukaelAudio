@@ -17,22 +17,24 @@ typedef struct{
 	uint16_t maxLength; //maximum allowed number of elements before address overflow
 }KaelTree;
 
-uint8_t kaelTree_alloc(KaelTree *tree, uint16_t width);
+uint8_t kaelTree_alloc(KaelTree *tree, const uint16_t width);
 void kaelTree_free(KaelTree *tree);
 
+uint8_t kaelTree_resize(KaelTree *tree, const uint16_t n);
 KaelTree *kaelTree_push(KaelTree *tree, const void *restrict element);
 uint8_t kaelTree_pop(KaelTree *tree);
-uint8_t kaelTree_resize(KaelTree *tree, uint16_t n);
+KaelTree *kaelTree_insert(KaelTree *tree, uint16_t index, const void *restrict element);
 
-void kaelTree_setWidth(KaelTree *tree, uint16_t width);
+void kaelTree_setWidth(KaelTree *tree, const uint16_t width);
 
-void kaelTree_set(KaelTree *tree, uint16_t index, const void *restrict element);
+void kaelTree_set(KaelTree *tree, const uint16_t index, const void *restrict element);
 
-void *kaelTree_get(KaelTree *tree, uint16_t index);
+void *kaelTree_get(const KaelTree *tree, uint16_t index);
 
-void *kaelTree_begin(KaelTree *tree);
-void *kaelTree_back(KaelTree *tree);
+void *kaelTree_begin(const KaelTree *tree);
+void *kaelTree_back(const KaelTree *tree);
 
-uint16_t kaelTree_length(KaelTree *tree);
-uint16_t kaelTree_empty(KaelTree *tree);
+uint16_t kaelTree_length(const KaelTree *tree);
+uint16_t kaelTree_empty(const KaelTree *tree);
 
+//uint8_t kaelTree_next(const KaelTree *tree, void **current);

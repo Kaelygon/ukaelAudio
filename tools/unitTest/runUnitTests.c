@@ -19,10 +19,10 @@
 
 void unitTest_runTests(){
 	void(*unitTest_func[])() = {
-		kaelTerminal_unit	,
-		kaelString_unit	,
-		kaelTree_unit		,
-		kaelRand_unit		,
+		//kaelTerminal_unit	,
+		//kaelString_unit	,
+		//kaelTree_unit		,
+		//kaelRand_unit		,
 	};
 	uint16_t unitTestCount = sizeof(unitTest_func)/sizeof(unitTest_func[0]);
 

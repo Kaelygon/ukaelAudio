@@ -114,10 +114,6 @@ set(LINK_LIBRARIES "${LINK_LIBRARIES}" "-lm")
 set(CMAKE_BUILD_TYPE Debug)
 set(DEFAULT_FLAGS "-g" "-Wall" "-Wextra" "-pedantic" "-lpthread")
 
-if(BUILD_16_BIT)
-	set(DEFAULT_FLAGS "${DEFAULT_FLAGS}" "-m16")
-endif()
-
 # Exclude flags
 # These don't seem important? Some seem clang specific as GCC gives no warnings 
 #set(EXCLUDE_FLAGS "-Wno-newline-eof" "-Wno-gnu-zero-variadic-macro-arguments" "-Wno-unknown-warning-option" "-Wno-gnu-binary-literal" "-Wno-undefined-inline" "-Wno-static-in-inline")
