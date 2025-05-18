@@ -71,7 +71,17 @@ inline uint8_t kaelMath_u8rorr(uint8_t num, const uint8_t shift){
 	return ((num>>shift) | (num<<invShift));
 }
 
-
+/**
+ * @brief count leading ones
+ */
+uint8_t kaelMath_u8clo(uint8_t byte){
+	uint8_t count=0;
+	while( byte>>(CHAR_BIT-1) ){
+		count++;
+		byte<<=1;
+	}
+	return count;
+}
 
 
 //------ kaelRand ------

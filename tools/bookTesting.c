@@ -3,66 +3,88 @@
 #include "kaelygon/book/book.h"
 #include "kaelygon/math/math.h"
 
+/*
+
+typedef struct{
+	KaelTree page; //Vector like dynamic data
+	uint16_t pos[2]; //viewport position of currentrly printed character
+	uint16_t size[2]; //viewport size
+	uint16_t index; //Page index
+
+	KaelTui_RowBuffer *rowBuf; //print row buffer
+	KaelTree *shapePtrList; //
+}KaelBook;
+*/
+
 void unit_kaelTuiPrintPage(){
 
-	KaelBook_page page;
-	page.vcols = 128;
-	page.vrows = 24;
+	KaelTui_ansiCode testColor1 = { .mod=AnsiModValue[ansiBGHigh], .color=ansiMagenta, .style=ansiBold };
+	KaelTui_ansiCode testColor2 = { .mod=AnsiModValue[ansiFGHigh], .color=ansiBlack, .style=ansiBold };
+	KaelTui_ansiCode testColor3 = { .mod=AnsiModValue[ansiBGHigh], .color=ansiBlue, .style=ansiBold };
+	
+	uint8_t testShapeString[] = {
+		markerStyle,testColor1.byte,markerStyle,testColor2.byte,
+		'0','1','2','3','4','5','6','7',
+		'a',markerJump,6,'b',
+		markerStyle,testColor3.byte,markerJump,8,
+		'c','d','e','f','g','h','i','j',
+		'\0',
+	};
 
-	kaelTree_alloc(&page.shape, sizeof(KaelBook_shape));
+	KaelTui_RowBuffer rowBuf = {
+		.readPtr = NULL,
+		.pos = 0,
+		.size = 256
+	};
+	uint8_t testBuffer[256]={0};
+	rowBuf.s = testBuffer;
+
+	KaelBook book={0};
+	book.size[0]=128;
+	book.size[1]=24;
+	book.rowBuf=&rowBuf;
+	kaelTree_alloc(&book.page, sizeof(KaelBook_page));
+	kaelTree_alloc(&book.shapePtrList, sizeof(KaelBook_shape*));
+
+	KaelBook_page testPage={0};
+	testPage.style = testColor1.byte;
+	//virtual page size
+	testPage.size[0] = 128;
+	testPage.size[1] = 24;
+
+	kaelTree_alloc(&testPage.shape, sizeof(KaelBook_shape));
 
 	//Generate shapes
-	uint16_t strLen = 33;
 	KaelBook_shape tmpShape = {
-		.pos = {4,1},
+		.pos = {4,2},
 		.size = {8,4}, //Can't exceed canvas bounds
+		.string = testShapeString,
 		.readHead = 0,
 		.lastStyle = ansiReset,
 		.jumpsRemaining = 0,
 	};
-	tmpShape.string = calloc(strLen, sizeof(uint8_t));
 	if(tmpShape.string==NULL){
 		return;
 	}
 	
-	KaelTui_ansiCode magenta = { .mod=AnsiModValue[ansiBGHigh], .color=ansiMagenta, .style=ansiBold };
-	tmpShape.string[0] = markerStyle;
-	tmpShape.string[1] = magenta.byte;
-	
-	const char *tmpStr = "abcdefghij\0";
-	memcpy(tmpShape.string+2,tmpStr,12);
-	uint8_t curLen = strlen((char*)tmpShape.string);
-	tmpShape.string[curLen+0] = markerJump;
-	tmpShape.string[curLen+1] = 4;
-	tmpShape.string[curLen+2] = 'a';
-	tmpShape.string[curLen+3] = markerJump;
-	tmpShape.string[curLen+4] = 5;
-	tmpShape.string[curLen+5] = 'b';
-	tmpShape.string[curLen+6] = markerJump;
-	tmpShape.string[curLen+7] = 64;
-	tmpShape.string[curLen+10] = '\0';
-	curLen = strlen((char*)tmpShape.string);
-	
-
-	kaelTree_push(&page.shape, &tmpShape);
-	tmpShape.pos[0]=16;
-	tmpShape.pos[1]=16;
-	kaelTree_push(&page.shape, &tmpShape);
-
-	KaelTui_RowBuffer rowBuf = {
-		.s = (uint8_t[32]){0},
-		.readPtr = NULL,
-		.pos = 0,
-		.size = 32
-	};
+	for(uint16_t i=0;i<4;i++){
+		kaelTree_push(&testPage.shape, &tmpShape);
+		tmpShape.pos[0]+=8;
+		tmpShape.pos[1]+=4;
+	}
+	tmpShape.pos[0]=13;
+	tmpShape.pos[1]=2;
+	kaelTree_push(&testPage.shape, &tmpShape);
+	kaelTree_push(&book.page, &testPage);
 
 	uint64_t startTime = __rdtsc();
-	kaelTui_printPage(&page, &rowBuf);
+	kaelTui_printPage(&book);
 	uint64_t endTime = __rdtsc();
 
-	free(tmpShape.string);
 
-	kaelTui_freePage(&page);
+	kaelTui_freePage(&testPage);
+	kaelTree_free(&book.shapePtrList);
+	kaelTree_free(&book.page);
 
 	uint8_t ansiLen = 8;
 	uint8_t ansiResetColor[ansiLen];

@@ -26,9 +26,9 @@ typedef struct{
 }KaelTui_RowBuffer;
 
 typedef struct{
+	uint8_t *string; //data byte string
 	uint16_t pos[2]; //col by row
 	uint16_t size[2];
-	uint8_t *string; //data byte string
 	uint16_t readHead;
 	uint8_t lastStyle;
 	uint8_t jumpsRemaining;
@@ -36,15 +36,20 @@ typedef struct{
 
 typedef struct{
 	KaelTree shape; //Vector like dynamic data
-	uint16_t vcols; //virtual columns
-	uint16_t vrows; //virtual rows
+	uint16_t size[2]; //virtual size
+	uint8_t style;  //default style
 }KaelBook_page;
 
 typedef struct{
 	KaelTree page; //Vector like dynamic data
-	uint16_t index;
-}KaelBook_book;
+	uint16_t pos[2]; //viewport position of currentrly printed character
+	uint16_t size[2]; //viewport size
+	uint16_t index; //Page index
+	uint16_t scroll;
 
+	KaelTui_RowBuffer *rowBuf; //print row buffer
+	KaelTree shapePtrList; //list of shapes on current row
+}KaelBook;
 
 //------ Ansi escape sequence ------
 
@@ -115,6 +120,6 @@ uint8_t kaelTui_encodeAnsiEsc(uint8_t *escSeq, const uint8_t ansiByte, uint16_t 
 
 void kaelTui_freePage(KaelBook_page *page);
 
-void kaelTui_printPage( const KaelBook_page *page, KaelTui_RowBuffer *rowBuf );
+void kaelTui_printPage( KaelBook *book);
 
 void unit_kaelTuiPrintPage();

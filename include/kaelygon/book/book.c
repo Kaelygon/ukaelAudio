@@ -4,6 +4,9 @@
  * @brief Implementation, Print TUI pages
  * 
  * Why this amalgamation? Because I decided our print buffer is 256 bytes for no particular reason other than as a challenge
+ * 
+ * Hierarchy
+ * book -> page -> shape -> string
  */
 
 #include "kaelygon/book/book.h"
@@ -61,7 +64,15 @@ uint8_t kaelTui_encodeAnsiEsc(uint8_t *escSeq, const uint8_t ansiByte, uint16_t 
 	return 7;
 }
 
-
+/**
+ * @brief Calculate how much of the shape string was read, and store the progress in shapePtr 
+ */
+void kaelTui_storeReadCount(KaelBook_shape *shapePtr, const uint8_t* startPtr, const uint8_t* endPtr ){
+	if(shapePtr!=NULL){
+		uint16_t readCount = endPtr - startPtr;
+		shapePtr->readHead += readCount;
+	}
+}
 
 //------ Print shape ------
 
@@ -84,7 +95,7 @@ uint8_t kaelTui_fitsInBuf(KaelTui_RowBuffer *rowBuf, uint16_t bytes){
 void kaelTui_printRowBuf(KaelTui_RowBuffer *rowBuf){
 	KAEL_ASSERT(rowBuf!=NULL);
 	//read head can't be beyond its size
-	kaelTui_fitsInBuf(rowBuf,0);
+	KAEL_ASSERT(rowBuf->pos <= rowBuf->size, "rowBuf overflow");
 	//Print only up to overwritten part
 	fwrite((char *)rowBuf->s, sizeof(char), rowBuf->pos, stdout); 
 	rowBuf->pos=0;
@@ -105,22 +116,39 @@ void kaelTui_printFullBuf(KaelTui_RowBuffer *rowBuf, uint16_t bytes){
 */
 void kaelTui_printeSpace(KaelTui_RowBuffer *rowBuf, uint16_t spaceCount){
 	KAEL_ASSERT(rowBuf!=NULL);
-	KAEL_ASSERT(rowBuf!=0);
 	if(spaceCount==0){
 		return;  //NULL data
 	};
+	uint8_t batches = spaceCount/rowBuf->size;
+	uint8_t len    = spaceCount - batches * rowBuf->size;
 
-	for(uint16_t i=0; i<spaceCount; i++){ //jump
-		kaelTui_printFullBuf(rowBuf,1);
-		rowBuf->s[rowBuf->pos]=' ';
-		rowBuf->pos+=1;
+	kaelTui_printFullBuf(rowBuf,len);
+	memset((uint8_t*)&rowBuf->s[rowBuf->pos], ' ', sizeof(uint8_t)*len);
+	rowBuf->pos+=len;
+
+	//if spaceCount is larger than rowBuf->size
+	for(uint16_t i=0; i<batches; i++){
+		kaelTui_printRowBuf(rowBuf);
+		memset(rowBuf->s, ' ', rowBuf->size);
+		fwrite(rowBuf->s, sizeof(char), rowBuf->size, stdout);
 	}
+}
+
+/**
+ * @brief Push string to rowbuf
+*/
+void kaelTui_pushChar(KaelTui_RowBuffer *rowBuf, const char *string, const uint8_t bytes){
+	KAEL_ASSERT(rowBuf!=NULL);
+	KAEL_ASSERT(string!=NULL);
+
+	kaelTui_printFullBuf(rowBuf,bytes);
+	memcpy((uint8_t*)&rowBuf->s[rowBuf->pos], string, sizeof(uint8_t)*bytes);
+	rowBuf->pos+=bytes;
 	return;
 }
 
 void kaelTui_printMarkerStyle(KaelTui_RowBuffer *rowBuf, uint8_t rawByte){
 	KAEL_ASSERT(rowBuf!=NULL);
-	KAEL_ASSERT(rowBuf!=0);
 	if(rawByte==0){
 		return; //NULL data
 	};
@@ -141,37 +169,77 @@ void kaelTui_getRowShapes( const KaelBook_page *page, KaelTree *shapePtrList, ui
 
 		uint16_t shapeStartRow = shapePtr->pos[1];
 		uint16_t shapeEndRow   = shapePtr->pos[1] + shapePtr->size[1];
-		uint8_t condition = row >= shapeStartRow && row < shapeEndRow; 
+		uint8_t condition = row >= shapeStartRow && row < shapeEndRow;  //If shape overlaps with row
 
-		if( condition ){ //If shape overlaps with row
+		if( condition ){
 			kaelTree_push(shapePtrList, &shapePtr);
 		}
 	}
 }
 
-//print shape row by row
-void kaelTui_printRow( const KaelBook_page *page, KaelTui_RowBuffer *rowBuf, KaelTree *shapePtrList,  uint16_t currentCol, uint16_t currentRow ){
-	//Reset shape list for each row
+void kaelTui_parseChar( KaelBook *book, KaelTui_RowBuffer *rowBuf, KaelBook_shape *shapePtr ){
+	//Parse character
+	switch( (uint8_t)rowBuf->readPtr[0] ){
+		case markerJump:
+			//Backlog jumps for next row
+			rowBuf->readPtr++; //skip the marker
+			shapePtr->jumpsRemaining = rowBuf->readPtr[0]; 
+			rowBuf->readPtr++;
+			break;
+
+		case markerStyle:
+			//Ansi style and color encoding
+			rowBuf->readPtr++;
+			shapePtr->lastStyle = rowBuf->readPtr[0];
+			kaelTui_printMarkerStyle(rowBuf, rowBuf->readPtr[0]);
+			rowBuf->readPtr++;
+			break;
+
+		case 0: 
+			//NULL termination
+			book->pos[0]++;
+			break;
+
+		default: 
+			kaelTui_pushChar(rowBuf, (char*)&rowBuf->readPtr[0], 1);
+			//non zero character increments
+			book->pos[0]++;
+			rowBuf->readPtr++;
+			break;
+	}
+}
+
+
+/**
+ * @brief print current page row 
+ */
+void kaelTui_printRow( KaelBook *book, KaelBook_page *page ){
+
+	KaelTui_RowBuffer *rowBuf = book->rowBuf;
+	KaelTree *shapePtrList = &book->shapePtrList;
+
+	//Reset and populate shapePtr for this row
 	kaelTree_resize(shapePtrList, 0);
+	kaelTui_getRowShapes( page, shapePtrList, book->pos[1]);
 
-	uint16_t shapePtrIndex=0;
-	uint16_t shapePtrCount=0;
-	//rowBuf->readPtr will be incremented so we have to keep track of where we started in shaePtr->string
-	const uint8_t *readHeadStart=rowBuf->readPtr;
-
-	kaelTui_getRowShapes( page, shapePtrList, currentRow);
-   shapePtrCount = kaelTree_length(shapePtrList);
-
+	//shapePtrList Iterator
 	KaelBook_shape *shapePtr = NULL;
+	uint16_t shapePtrIndex = 0;
+	uint16_t shapePtrCount = kaelTree_length(shapePtrList);
 
-	while( shapePtrIndex<=shapePtrCount && shapePtrCount!=0 ){
+	//shapePtr string start
+	uint8_t *readStart=NULL;
+
+	while( !kaelTree_empty(shapePtrList) ){
 
 		//next shape
-		if( shapePtr==NULL || (currentCol - shapePtr->pos[0]) >= shapePtr->size[0] ){ //shape is NULL OR currentCol exceeds shape 
+		if( shapePtr==NULL || (book->pos[0] - shapePtr->pos[0]) >= shapePtr->size[0] ){ //shape is NULL OR book->pos[0] exceeds shape 
 
 			if( shapePtrIndex>=shapePtrCount ){ //if current==end
 				break; 
 			}
+
+			kaelTui_storeReadCount(shapePtr, readStart, rowBuf->readPtr);
 			
 			//next shape pointer
 			shapePtr = *(KaelBook_shape **)kaelTree_get(shapePtrList, shapePtrIndex);
@@ -182,89 +250,51 @@ void kaelTui_printRow( const KaelBook_page *page, KaelTui_RowBuffer *rowBuf, Kae
 
 			//continue reading shape string at shape readhead
 			rowBuf->readPtr = (uint8_t *)shapePtr->string + shapePtr->readHead;
-			readHeadStart = (uint8_t *)rowBuf->readPtr;
+			readStart = (uint8_t *)rowBuf->readPtr;
 
 			//jump to next shape
-			if( currentCol < shapePtr->pos[0] ){
-				uint16_t jumpCount = shapePtr->pos[0]-currentCol;
+			if( book->pos[0] < shapePtr->pos[0] ){
+				uint16_t jumpCount = shapePtr->pos[0] - book->pos[0];
 				kaelTui_printMarkerStyle(rowBuf, ansiReset);
 				kaelTui_printeSpace(rowBuf, jumpCount);
 				kaelTui_printMarkerStyle(rowBuf, shapePtr->lastStyle); 
 
-				currentCol+=jumpCount;
+				book->pos[0]+=jumpCount;
 			}
 
 		}
 
 		//if past last column
-		if(currentCol>=page->vcols){
+		if(book->pos[0] >= book->size[0]){
 			break;
 		}
 
 		//Check if shapePtr has backlogged jumps
-		if(shapePtr->jumpsRemaining!=0){
+		if( shapePtr->jumpsRemaining ){
 			kaelTui_printMarkerStyle(rowBuf, shapePtr->lastStyle);
-			uint8_t shapeColsRemaining = shapePtr->size[0] - (currentCol - shapePtr->pos[0]);
+			uint8_t shapeColsRemaining = shapePtr->size[0] - (book->pos[0] - shapePtr->pos[0]);
 			uint8_t jumpCount = kaelMath_min( shapePtr->jumpsRemaining, shapeColsRemaining ); //Can't exceed shape
 			kaelTui_printeSpace(rowBuf, jumpCount);
 			shapePtr->jumpsRemaining-=jumpCount;
-			currentCol+=jumpCount;
+			book->pos[0]+=jumpCount;
 			continue;
 		}
 
-		//Parse character
-		switch( (uint8_t)rowBuf->readPtr[0] ){
-			case markerJump:
-				//Backlog jumps for next row
-				rowBuf->readPtr++; //skip the marker
-				shapePtr->jumpsRemaining = rowBuf->readPtr[0]; 
-				rowBuf->readPtr++;
-				break;
-
-			case markerStyle:
-				//Ansi style and color encoding
-				rowBuf->readPtr++;
-				shapePtr->lastStyle = rowBuf->readPtr[0];
-				kaelTui_printMarkerStyle(rowBuf, rowBuf->readPtr[0]);
-				rowBuf->readPtr++;
-				break;
-
-			case 0: 
-				//NULL termination
-				currentCol++;
-				break;
-
-			default: 
-				//Regular characters (and unicode if it's ever supported)
-				rowBuf->s[rowBuf->pos++] = rowBuf->readPtr[0];
-				//non zero character increments
-				currentCol++;
-				kaelTui_printFullBuf(rowBuf,1); //Print if last char filled buffer
-				rowBuf->readPtr++;
-				break;
-		}
+		kaelTui_parseChar(book, rowBuf, shapePtr);
 	}
 
-	//copy readhead progress to shape
-	if(shapePtr!=NULL){
-		uint16_t readCount = rowBuf->readPtr - readHeadStart;
-		shapePtr->readHead+= readCount;
-	}
+	kaelTui_storeReadCount(shapePtr, readStart, rowBuf->readPtr);
 			
-	kaelTui_printMarkerStyle(rowBuf, ansiReset); 
-	currentCol=0;
-
-	//Check if enough space in rowBuf for '\n'
-	kaelTui_printFullBuf(rowBuf,1);
-
-	//Newline starts
-	rowBuf->s[rowBuf->pos++] = '\n'; 
+	//Start new line
+	kaelTui_printMarkerStyle(rowBuf, ansiReset);
+	kaelTui_pushChar(rowBuf, "\n", 1);
+	book->pos[0]=0;
 }
 
 
 
 /**
-	@brief print rectangle in viewport
+	@brief print page shapes in viewport row by row
 
 	Private Use Area (PUA), 2-byte range: U+E000 to U+F8FF
 	Linux ANSI color escape sequences are atrociously long, up to 8 bytes '\x1b'[1;37m
@@ -277,26 +307,31 @@ void kaelTui_printRow( const KaelBook_page *page, KaelTui_RowBuffer *rowBuf, Kae
 	
 	Since 0xE0 to 0xF8 are 
 */	
-void kaelTui_printPage( const KaelBook_page *page, KaelTui_RowBuffer *rowBuf ){
-	if(kaelTree_empty(&page->shape) || page->vcols==0 || page->vrows==0){
+void kaelTui_printPage( KaelBook *book){
+	if(kaelTree_empty(&book->page)){
 		return;
 	}
 
-   //List of shape pointers that will be printed on current row
-	KaelTree shapePtrList;
-	kaelTree_alloc(&shapePtrList, sizeof(KaelBook_shape*));
+	//Reset to top 
+	const char *ansiMovTop = "\x1b[0";
+	kaelTui_pushChar(book->rowBuf, ansiMovTop, strlen(ansiMovTop));
 
-	uint16_t currentCol=0;
+	KaelBook_page *curPage = kaelTree_get(&book->page,book->index);
 
-	//print page row by row by searching overlapping shapes on each row
-	for(uint16_t currentRow=0; currentRow<page->vrows; currentRow++){
-		kaelTui_printRow( page, rowBuf, &shapePtrList, currentCol, currentRow );
+	//Iterate viewport rows
+	for(book->pos[1]=0; book->pos[1] < book->size[1]; book->pos[1]++){
+		kaelTui_printRow( book, curPage );
 	}
-	//Print remaining buffer
-	kaelTui_printRowBuf(rowBuf);
+	//Print remaining buffer if any
+	kaelTui_printRowBuf(book->rowBuf);
 
-	//page ends
-	kaelTree_free(&shapePtrList);
+	//Reset readheads
+	for(uint16_t i=0; i < kaelTree_length(&curPage->shape); i++){ 
+		KaelBook_shape *shapePtr = kaelTree_get(&curPage->shape, i);
+		shapePtr->readHead = 0;
+	}
+
+	//page ends, flush viewport
 	fflush(stdout);
 }
 
