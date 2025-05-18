@@ -23,15 +23,13 @@ typedef struct{
 	uint16_t pos; //Write position of .s
 	uint16_t size; //buffer .s size
 	const uint8_t* readPtr; //string char index being read
-}KaelTui_RowBuffer;
+}KaelTui_rowBuffer;
 
 typedef struct{
 	uint8_t *string; //data byte string
 	uint16_t pos[2]; //col by row
 	uint16_t size[2];
 	uint16_t readHead;
-	uint8_t lastStyle;
-	uint8_t jumpsRemaining;
 }KaelBook_shape;
 
 typedef struct{
@@ -42,13 +40,12 @@ typedef struct{
 
 typedef struct{
 	KaelTree page; //Vector like dynamic data
-	uint16_t pos[2]; //viewport position of currentrly printed character
+	uint16_t viewPos[2]; //viewport origin offset
 	uint16_t size[2]; //viewport size
 	uint16_t index; //Page index
-	uint16_t scroll;
 
-	KaelTui_RowBuffer *rowBuf; //print row buffer
-	KaelTree shapePtrList; //list of shapes on current row
+	KaelTui_rowBuffer *rowBuf; //print row buffer
+	KaelTree drawQueue; //list of shape POINTERS to be printed
 }KaelBook;
 
 //------ Ansi escape sequence ------
@@ -112,14 +109,16 @@ typedef enum{
 }KaelTui_Marker;
 
 
-char kaelTui_decodeAnsiEsc(const uint8_t mod, const uint8_t color, const uint8_t style);
-uint8_t kaelTui_encodeAnsiEsc(uint8_t *escSeq, const uint8_t ansiByte, uint16_t offset);
+//------ Ansi style escape sequence ------
 
-//------ Print shape ------
-
+char kaelTui_decodeStyle(const uint8_t mod, const uint8_t color, const uint8_t style);
+uint8_t kaelTui_encodeStyle(uint8_t *escSeq, const uint8_t ansiByte, uint16_t offset);
 
 void kaelTui_freePage(KaelBook_page *page);
 
-void kaelTui_printPage( KaelBook *book);
+//------ Print shape ------
+
+void kaelTui_switchPage(KaelBook *book, uint16_t index);
+void kaelTui_drawQueue(KaelBook *book);
 
 void unit_kaelTuiPrintPage();

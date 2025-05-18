@@ -5,12 +5,14 @@
 
 	@brief 16-bit uint c++ std::vector like, dynamic memory stored in heap
 	
-	(void *)data can hold any type of an element, structs, pointers or even *KaelTree
+	@note No bounds checking
+	
+	(void *)data can hold any type of an element, structs, pointers or even *KaelTree itself
 	Memory is allocated dynamically, see growth/shrink factor macros below
 
 	@code
 	{ 
-	//TODO: No mo nested recursive trees plz
+	//TODO:
 	}
 	@endcode
 	
@@ -222,25 +224,23 @@ void *kaelTree_get(const KaelTree *tree, const uint16_t index){
 }
 //get first element
 void *kaelTree_begin(const KaelTree *tree){
-    void *elem = kaelTree_get(tree,0);
+   void *elem = kaelTree_get(tree,0);
 	return elem;
 }
 //get last element
 void *kaelTree_back(const KaelTree *tree){
-    void *elem = kaelTree_get( tree, tree->length-1 );
+   void *elem = kaelTree_get( tree, tree->length-1 );
 	return elem;
 }
 
-/* Iterators in C are kinda of a mess without templates
-uint8_t kaelTree_next(const KaelTree *tree, void **current){
-	KAEL_ASSERT(current != NULL || tree != NULL);
-	void *next = (void *)((uint8_t *)*current + tree->width);
+//Get next element 
+void kaelTree_next(const KaelTree *tree, void **current){
+	KAEL_ASSERT(current != NULL && tree != NULL);
+	void *next = (uint8_t *)(*current) + tree->width;
 	void *back = kaelTree_back(tree);
-	if (next > back){
+	if((void *)next > (void *)back){
 		*current=NULL;
-		return 0;
+		return;
 	}
 	*current=next;
-	return 1;
 }
-*/
