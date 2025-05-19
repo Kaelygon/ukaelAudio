@@ -34,7 +34,7 @@
 #define GROWTH_DENOM 2 
 
 #define ELEMS_MAX 32767 // (2^16-1)/GROWTH_FACTOR
-#define ELEMS_MIN 0
+//#define ELEMS_MIN 0 //replaced by tree->reserve
 
 //---alloc and free---
 
@@ -44,8 +44,9 @@
 uint8_t kaelTree_alloc(KaelTree *tree, const uint16_t size) {
 	if(NULL_CHECK(tree)){return KAEL_ERR_NULL;}
 	tree->length = 0;
-	tree->data 		= NULL;
-	tree->capacity 	= 0;
+	tree->data = NULL;
+	tree->capacity	= 0;
+	tree->reserve = 0;
 	kaelTree_setWidth(tree, size);
 	return KAEL_SUCCESS;
 }
@@ -64,9 +65,8 @@ void kaelTree_free(KaelTree *tree){
 
 //---rescaling---
 
-
 /**
- * @brief Set tree to specific size. Shrinking won't invoke realloc
+ * @brief Set apparent tree length. Shrinking won't invoke realloc
  */
 uint8_t kaelTree_resize(KaelTree *tree, const uint16_t length){
 	if(NULL_CHECK(tree,"resize")){return KAEL_ERR_NULL;}
@@ -77,7 +77,7 @@ uint8_t kaelTree_resize(KaelTree *tree, const uint16_t length){
 	} 
 
 	uint16_t newLength = kaelMath_min(length, ELEMS_MAX);
-	uint16_t minAlloc = newLength + ELEMS_MIN;
+	uint16_t minAlloc = kaelMath_max(newLength, tree->reserve);
 	uint16_t newAlloc = minAlloc * tree->width;
 
 	//Shrinking nor 0 size doesn't invoke realloc
@@ -102,6 +102,34 @@ uint8_t kaelTree_resize(KaelTree *tree, const uint16_t length){
 	}
 
 	tree->length=newLength;
+	return KAEL_SUCCESS;
+}
+
+/**
+ * @brief Reserve minimum number of elements
+ */
+uint8_t kaelTree_reserve(KaelTree *tree, const uint16_t length){
+	if(NULL_CHECK(tree,"reserve")){return KAEL_ERR_NULL;}
+	tree->reserve = length;
+
+	//Similar to resize but without growth scaling or setting length
+	uint16_t newLength = kaelMath_min(length, ELEMS_MAX);
+	uint16_t newAlloc = newLength * tree->width;
+
+	if( newAlloc > tree->capacity ){ 
+		void *newData = realloc(tree->data, newAlloc);
+		if( NULL_CHECK(newData) ){ return KAEL_ERR_ALLOC; }
+
+		//Zero newly resized portion if any
+		if (newAlloc > tree->capacity) {
+			uint16_t newSize = newAlloc - tree->capacity;
+			memset((uint8_t*)newData + tree->capacity, 0, newSize);
+		}
+
+		tree->capacity=newAlloc;
+		tree->data=newData;
+	}
+
 	return KAEL_SUCCESS;
 }
 
@@ -161,7 +189,8 @@ uint8_t kaelTree_pop(KaelTree *tree){
 
 	uint16_t newLength = tree->length -1;
 
-	uint16_t newAlloc = newLength * tree->width + ELEMS_MIN;
+	uint16_t minAlloc = kaelMath_max(newLength, tree->reserve);
+	uint16_t newAlloc = tree->width * minAlloc;
 	uint16_t scaleAlloc = (tree->capacity/GROWTH_NUMER)*GROWTH_DENOM;
 	if( newAlloc <= scaleAlloc ){ //shrink if below threshold
 		newAlloc = tree->capacity/GROWTH_NUMER*GROWTH_DENOM;
@@ -182,7 +211,7 @@ void kaelTree_setWidth(KaelTree *tree, const uint16_t size){
 	if(NULL_CHECK(tree,"setSize")){return;}
 	tree->width=size;
 	uint16_t length = tree->length;
-	tree->maxLength = UINT16_MAX / tree->width - ELEMS_MIN;
+	tree->maxLength = UINT16_MAX / tree->width - tree->reserve;
 	kaelTree_resize(tree,length); //resize with new byte width
 }
 
@@ -243,4 +272,16 @@ void kaelTree_next(const KaelTree *tree, void **current){
 		return;
 	}
 	*current=next;
+}
+
+//Get previous element 
+void kaelTree_prev(const KaelTree *tree, void **current){
+	KAEL_ASSERT(current != NULL && tree != NULL);
+	void *prev = (uint8_t *)(*current) - tree->width;
+	void *front = kaelTree_begin(tree);
+	if((void *)prev < (void *)front){
+		*current=NULL;
+		return;
+	}
+	*current=prev;
 }
