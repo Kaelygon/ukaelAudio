@@ -39,7 +39,7 @@ extern KaelDebug *GLOBAL_DEBUG;
 
 
 KaelDebug *GLOBAL_DEBUG = NULL;
-static const char _defaultDebugStr[2][10] = {
+static const char _defaultDebugStr[2][11] = {
     " BOF DEBUG",
     " BOF INFO\0"
 };

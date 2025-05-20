@@ -5,31 +5,61 @@
  */
 #include "kaelygon/book/tui.h"
 
+
 /**
- * @brief Offsets to get fore-/background colors low and high
- * tens place. 3*10 + ansiBlue = ansiFGLow blue
+ * @brief List of escape sequences enumerated by KaelTui_escSeqIndex
  */
-uint8_t AnsiModValue[4] = { 
-	3, //ansiFGLow
-	4, //ansiFGHigh
-	7, //ansiBGLow
-	9, //ansiBGHigh
+const char *kaelTui_escSeq[] = {
+	"\033[2J",	//escSeq_clear
+	"\033[2K"	//escSeq_clearRow
 };
+
+/**
+ * @brief List of kaelTui_escSeq lengths enumerated by KaelTui_escSeqIndex
+ */
+const uint8_t kaelTui_escSeqLen[] = {
+	5,	//escSeq_clear
+	5	//escSeq_clearRow
+};
+
+/**
+ * @brief List of ansi style modifiers enumerated by KaelTui_ansiModIndex
+ */
+uint8_t kaelTui_ansiMod[4] = { 
+	3, //ansiFGLow
+	9, //ansiFGHigh
+	4, //ansiBGLow
+	10, //ansiBGHigh
+};
+
+uint8_t kaelTui_u16ToString(uint16_t value, char *buf) {
+	uint8_t i = 0;
+	char tmp[5];
+	do{
+		tmp[i++] = '0' + (value % 10);
+		value /= 10;
+	}while(value!=0);
+	//reverse
+	for (uint8_t j=0; j<i; j++){
+		buf[j] = tmp[i-j-1];
+	}
+	return i;
+}
 
 /**
  * @brief Encode ansi color into a single byte
  */
-char kaelTui_decodeStyle(const uint8_t mod, const uint8_t color, const uint8_t style){
-	KaelTui_ansiCode code = {
-		.mod = mod,
-		.color = color,
-		.style = style
+KaelTui_ansiStyle kaelTui_encodeStyle(const uint8_t modIndex, const uint8_t color, const uint8_t style){
+	KaelTui_ansiStyle code = {
+		.mod	 = modIndex	& 0b11,
+		.color = color		& 0b111,
+		.style = style		& 0b111
 	};
-	return code.byte;
+	return code;
 }
 
 /**
- * @brief decode ansi color escape sequence e.g \x1b[1;37m from KaelTui_ansiCode.byte
+ * @brief decode ansi color escape sequence e.g \x1b[1;37m from KaelTui_ansiStyle.byte
  * 
  * @warning No NULL termination Nor bound checking
  * 
@@ -37,26 +67,28 @@ char kaelTui_decodeStyle(const uint8_t mod, const uint8_t color, const uint8_t s
  * @return number of bytes written
  * 
  */
-uint8_t kaelTui_encodeStyle(uint8_t *escSeq, const uint8_t ansiByte, uint16_t offset){
+uint8_t kaelTui_styleToString(char *escSeq, const KaelTui_ansiStyle ansiStyle, uint16_t offset){
 	KAEL_ASSERT(escSeq!=NULL);
+	char *readHeadStart = escSeq+offset;
+	char *readHead = readHeadStart;
 
-	if ( ansiByte == ansiReset ) {
-		escSeq[offset+0]='\x1b';
-		escSeq[offset+1]='[';
-		escSeq[offset+2]='0';
-		escSeq[offset+3]='m';
-		return 4;
+	if ( ansiStyle.byte == ansiReset ) {
+		*readHead++='\x1b';
+		*readHead++='[';
+		*readHead++='0';
+		*readHead++='m';
+		return readHead - readHeadStart;
 	}
 
-	KaelTui_ansiCode code = {.byte=ansiByte};
-	escSeq[offset+0]='\x1b';
-	escSeq[offset+1]='[';
-	escSeq[offset+2]=code.style+'0';
-	escSeq[offset+3]=';';
-	escSeq[offset+4]=AnsiModValue[code.mod]+'0';
-	escSeq[offset+5]=code.color+'0';
-	escSeq[offset+6]='m';
-	return 7;
+	*readHead++='\x1b';
+	*readHead++='[';
+	*readHead++=ansiStyle.style+'0';
+	*readHead++=';';
+	readHead+= kaelTui_u16ToString(kaelTui_ansiMod[ansiStyle.mod], readHead); // The only +1 digit value
+	*readHead++=ansiStyle.color+'0';
+	*readHead++='m';
+
+	return readHead - readHeadStart;
 }
 
 
@@ -119,8 +151,9 @@ void kaelTui_pushSpace(KaelTui_rowBuffer *rowBuf, uint16_t spaceCount){
 void kaelTui_pushMarkerStyle(KaelTui_rowBuffer *rowBuf, uint8_t rawByte){
 	KAEL_ASSERT(rowBuf!=NULL);
 	//Check if rowBuf has enough space for ansiCode
-	kaelTui_printFullBuf(rowBuf, ansiLength);
-	rowBuf->pos+=kaelTui_encodeStyle(rowBuf->s, rawByte, rowBuf->pos);
+	kaelTui_printFullBuf(rowBuf, ansiMaxLength);
+	KaelTui_ansiStyle style = {.byte = rawByte};
+	rowBuf->pos+=kaelTui_styleToString((char*)rowBuf->s, style, rowBuf->pos);
 	return;
 }
 
@@ -142,6 +175,33 @@ void kaelTui_pushChar(KaelTui_rowBuffer *rowBuf, const char *string, const uint8
 */
 void kaelTui_pushMov(KaelTui_rowBuffer *rowBuf, uint16_t col, uint16_t row){
 	char escSeq[sizeof("\033[65535;65535H")]; 
-	uint8_t len = snprintf(escSeq, sizeof(escSeq), "\033[%u;%uH", row+1, col+1);
-	kaelTui_pushChar(rowBuf, escSeq, len); //Exclude null byte
+	char *readHead = escSeq;
+	*readHead++ = '\033';
+	*readHead++ = '[';
+
+	//Terminal emulators coordinates are offset by col+1, row+1 
+	 readHead+= kaelTui_u16ToString(row+1, readHead);
+	*readHead++ = ';';
+	 readHead+= kaelTui_u16ToString(col+1, readHead); 
+	*readHead++ = 'H';
+
+	kaelTui_pushChar(rowBuf, escSeq, readHead - escSeq);
+}
+
+/**
+ * @brief Scroll terminal
+*/
+void kaelTui_pushScroll(KaelTui_rowBuffer *rowBuf, uint8_t scrollCount, uint8_t scrollUp){
+	char escSeq[sizeof("\033[255S")]; 
+	char *readHead = escSeq;
+	*readHead++ = '\033';
+	*readHead++ = '[';
+	readHead+= kaelTui_u16ToString(scrollCount, readHead);
+	if(scrollUp){
+		*readHead++ = 'S';
+	}else{
+		*readHead++ = 'T';
+	}
+
+	kaelTui_pushChar(rowBuf, escSeq, readHead - escSeq);
 }

@@ -13,11 +13,32 @@
 
 #include <stdio.h>
 
+typedef union {
+	struct {
+		uint8_t bright   : 1;
+		uint8_t color    : 3;
+		uint8_t length   : 4;
+	};
+	uint8_t byte;
+}KaelBook_pixel;
+
+//What way should the string be drawn?
+typedef enum{
+	drawMode_default	= 0,
+
+	//Pack pixel stripes in 1 byte. [4bit : color] [4bit : length]
+	drawMode_pixel,	
+}KaelShape_drawMode;
+
+//Not much reason to add length yet. 
+//One benefit would be partially hidden shape drawing if length is known, 
+//but does it outweigh the need to track the strlen?
 typedef struct{
 	uint8_t *string; //data byte string
 	uint8_t ownsString;
 	uint16_t pos[2]; //col by row
 	uint16_t size[2];
+	uint8_t drawMode; 
 }KaelBook_shape;
 
 typedef struct{
@@ -34,6 +55,12 @@ typedef struct{
 	KaelTree drawQueue; //list of shape POINTERS to be printed
 }KaelBook;
 
+
+
+//------ drawMode_pixel ------
+KaelBook_pixel kaelBook_encodePixel(uint8_t bright, uint8_t color, uint8_t length);
+KaelBook_pixel kaelBook_decodePixel(uint8_t byte);
+
 //------ Alloc / Free ------
 
 uint8_t kaelBook_allocBook(KaelBook *book, const uint16_t viewWidth, const uint16_t viewHeight, const uint16_t printBufferSize);
@@ -44,6 +71,10 @@ void kaelBook_allocPage(KaelBook_page *page);
 
 //------ High level book manipulation ------
 
+void kaelBook_queueViewShapes(KaelBook *book);
 void kaelBook_switchPage(KaelBook *book, uint16_t index);
 void kaelBook_drawQueue(KaelBook *book);
 void kaelBook_resetStyle(KaelBook *book);
+
+void kaelBook_scrollRows(KaelBook *book, uint16_t scrollCount, uint16_t scrollUp);
+void kaelBook_scrollCols(KaelBook *book, uint16_t scrollCount, uint16_t scrollLeft);

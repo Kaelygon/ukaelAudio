@@ -11,3 +11,4 @@
 /doxygen/*
 /*.log
 /assets
+/cachegrind*

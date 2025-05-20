@@ -10,8 +10,6 @@
 #include "kaelygon/book/book.h"
 
 
-
-
 //------ Alloc / Free ------
 
 /**
@@ -86,39 +84,92 @@ void kaelBook_allocPage(KaelBook_page *page){
 //------ Shape col/row conditions  ------
 
 /**
- * @brief is shape column in view?
+ * @brief is any part of shape between rowY0 and rowY1?
+*/
+uint8_t kaelTui_isShapeInRows(KaelBook_shape *shapePtr, uint16_t rowY0, uint16_t rowY1 ){
+	uint16_t shapeY0 = shapePtr->pos[1]; //shape corners
+	uint16_t shapeY1 = shapePtr->pos[1] + shapePtr->size[1];
+
+	return  	shapeY0 < rowY1 && 	//visible top
+				shapeY1 > rowY0;		//visible bottom
+}
+
+/**
+ * @brief is any part of shape in viewport?
+*/
+uint8_t kaelTui_isShapeInView(KaelBook *book, KaelBook_shape *shapePtr){
+	uint16_t shapeX0 = shapePtr->pos[0]; //shape corners
+	uint16_t shapeY0 = shapePtr->pos[1];
+	uint16_t shapeX1 = shapePtr->pos[0] + shapePtr->size[0];
+	uint16_t shapeY1 = shapePtr->pos[1] + shapePtr->size[1];
+
+	uint16_t viewX0 = book->viewPos[0]; //view corners
+	uint16_t viewY0 = book->viewPos[1];
+	uint16_t viewX1 = book->viewPos[0] + book->size[0];
+	uint16_t viewY1 = book->viewPos[1] + book->size[1];
+
+	return  	shapeY0 < viewY1 && 	//visible bottom
+				shapeY1 > viewY0 && 	//visible top
+				shapeX0 < viewX1 &&	//visible right
+				shapeX1 > viewX0;	 	//visible left
+}
+
+/**
+ * @brief is shape char in view width wise?
  */
 uint8_t kaelTui_isColInView(KaelBook *book, KaelBook_shape *shapePtr, uint16_t col){
-	return col + shapePtr->pos[0] >= book->viewPos[0] &&
-			 col + shapePtr->pos[0]  < book->viewPos[0] + book->size[0];
+	return 	col + shapePtr->pos[0] >= book->viewPos[0] 						&&	//visible left
+			 	col + shapePtr->pos[0]  < book->viewPos[0] + book->size[0];		//visible right
 }
 
 /**
- * @brief is shape row in view?
+ * @brief is shape char in view height wise?
  */
 uint8_t kaelTui_isRowInView(KaelBook *book, KaelBook_shape *shapePtr, uint16_t row){
-	return row + shapePtr->pos[1] >= book->viewPos[1]
-		 && row + shapePtr->pos[1]  < book->viewPos[1] + book->size[1];
+	return	row + shapePtr->pos[1] >= book->viewPos[1] 						&&	//visible top
+				row + shapePtr->pos[1]  < book->viewPos[1] + book->size[1];		//visible bottom
 }
 
 /**
- * @brief is shape row above top?
+ * @brief is shape char above top?
  */
 uint8_t kaelTui_isTopClip(KaelBook *book, KaelBook_shape *shapePtr, uint16_t row){
 	return row + shapePtr->pos[1] < book->viewPos[1];
 }
 
 /**
- * @brief is shape row beyond bottom?
+ * @brief is shape char beyond bottom?
  */
 uint8_t kaelTui_isBotClip(KaelBook *book, KaelBook_shape *shapePtr, uint16_t row){
-	return row + shapePtr->pos[1] > book->viewPos[1] + book->size[1];
+	return row + shapePtr->pos[1] >= book->viewPos[1] + book->size[1];
 }
 
 
 
 
 //------ Shape drawing ------
+
+KaelBook_pixel kaelBook_encodePixel(uint8_t bright, uint8_t color, uint8_t length){
+	KaelBook_pixel pixel;
+	pixel.bright = bright&0b1;
+	pixel.color = color&0b111;
+	pixel.length = length&0b1111;
+	pixel.length = pixel.length==0 ? 1 : pixel.length;
+	return pixel;
+}
+
+KaelBook_pixel kaelBook_decodePixel(uint8_t byte){
+	KaelBook_pixel pixel;
+	pixel.byte = byte;
+	pixel.length = pixel.length==0 ? 1 : pixel.length;
+	return pixel;
+}
+
+KaelTui_ansiStyle kaelBook_pixelToStyle(KaelBook_pixel pixel){
+	uint8_t ansiMod = pixel.bright ? ansiBGHigh : ansiBGLow;
+	KaelTui_ansiStyle ansiCode = kaelTui_encodeStyle(ansiMod, pixel.color, 0U);
+	return ansiCode;
+}
 
 
 /**
@@ -140,15 +191,16 @@ void kaelBook_movInShape(KaelBook *book, KaelBook_shape *shapePtr, uint16_t col,
  */
 void kaelBook_solveSpaceMarker(KaelBook *book, KaelTui_rowBuffer *rowBuf, KaelBook_shape *shapePtr, uint16_t *col, uint16_t *row, uint8_t spaceCount){
 	while( spaceCount > 0 ){
-		//space remaining in shape
+		//How many columns are on right?
 		uint16_t colRemaining = shapePtr->size[0] - *col; 
 		uint16_t moveCount = kaelMath_min( spaceCount, colRemaining );
 		
-		//subtract hidden left columns but account existing chars on row
+		//How many columns are hidden on left?
 		uint16_t hiddenLeftCols = kaelMath_sub(book->viewPos[0], shapePtr->pos[0]);
-		uint16_t visibleSpace = moveCount - kaelMath_sub(hiddenLeftCols, *col); 
+					hiddenLeftCols = kaelMath_sub(hiddenLeftCols, *col); //account current col position
+		uint16_t visibleSpace  = kaelMath_sub(moveCount, hiddenLeftCols); //spaces in viewport
 
-		//space remaining in viewPort
+		//Space remaining in viewPort
 		uint16_t charCol = shapePtr->pos[0] + *col;
 		uint16_t viewEndCol = book->size[0] + book->viewPos[0];
 		uint16_t viewRemaining = kaelMath_sub(viewEndCol, charCol);
@@ -157,17 +209,17 @@ void kaelBook_solveSpaceMarker(KaelBook *book, KaelTui_rowBuffer *rowBuf, KaelBo
 		//print visible white spaces
 		kaelTui_pushSpace(rowBuf, visibleSpace); 
 
-		//virtually tracked spaces
+		//Book-space tracked white spaces
 		spaceCount -= moveCount; 
 		*col += moveCount;
 
-		//next row
 		if(*col >= shapePtr->size[0]){
+			//Next row
 			*col=0;
 			(*row)++;
-			//beyond last row
-			if( kaelTui_isBotClip(book, shapePtr, *row) ){
-				break;
+			if( (*row >= shapePtr->size[1]) || kaelTui_isBotClip(book, shapePtr, *row) ){
+				//Beyond shape or last visible row
+				return;
 			}
 			kaelBook_movInShape(book, shapePtr, *col, *row);
 		}
@@ -219,8 +271,8 @@ void kaelBook_parseChar(KaelBook *book, KaelTui_rowBuffer *rowBuf, KaelBook_shap
 			break;
 
 		default: 
-			//Check if column is visible and top is not clipped 
-			if(kaelTui_isColInView(book, shapePtr, *col) && ! kaelTui_isTopClip(book, shapePtr, *row) ){
+			//Check if column is visible
+			if(kaelTui_isColInView(book, shapePtr, *col)){
 				kaelTui_pushChar(rowBuf, (char*)&rowBuf->readPtr[0], 1);
 			}
 			//non zero character increments
@@ -230,10 +282,61 @@ void kaelBook_parseChar(KaelBook *book, KaelTui_rowBuffer *rowBuf, KaelBook_shap
 	}
 }
 
-
-
-
 //------ High level book manipulation ------
+
+/**
+	@brief Place cursor at end of the page and reset style
+*/	
+void kaelBook_resetStyle(KaelBook *book){
+	kaelTui_pushMarkerStyle(&book->rowBuf, ansiReset);
+	kaelTui_pushMov(&book->rowBuf, 0, book->size[1]+1);
+	kaelTui_printRowBuf(&book->rowBuf);
+	fflush(stdout);
+}
+
+void kaelBook_drawPixelString(KaelBook *book, KaelTui_rowBuffer *rowBuf, KaelBook_shape *shapePtr){
+	uint16_t col=0;
+	uint16_t row=0;
+	while( row < shapePtr->size[1] && ! kaelTui_isBotClip(book, shapePtr, row)){ //within shape
+		if(rowBuf->readPtr[0]==0){
+			//Null terminate
+			break;
+		}
+
+		kaelBook_movInShape(book, shapePtr, col, row);
+
+		KaelBook_pixel pixel = kaelBook_decodePixel((uint8_t)rowBuf->readPtr[0]);
+		rowBuf->readPtr++;
+		//Get color
+		KaelTui_ansiStyle ansiStyle = kaelBook_pixelToStyle(pixel);
+		kaelTui_pushMarkerStyle(rowBuf, ansiStyle.byte);
+
+		kaelBook_solveSpaceMarker(book, rowBuf, shapePtr, &col, &row, pixel.length);
+
+		if(col >= shapePtr->size[0]){
+			//Move cursor to next row in shape
+			col = 0;
+			row++;
+		}
+	}
+}
+
+void kaelBook_drawShapeString(KaelBook *book, KaelTui_rowBuffer *rowBuf, KaelBook_shape *shapePtr){
+	uint16_t col=0;
+	uint16_t row=0;
+	while( ! kaelTui_isBotClip(book, shapePtr, row)){ //within shape
+		kaelBook_movInShape(book, shapePtr, col, row);
+
+		kaelBook_parseChar(book, rowBuf, shapePtr, &col, &row);	
+
+		if(col >= shapePtr->size[0]){
+			//Move cursor to next row in shape
+			col = 0;
+			row++;
+		}
+	}
+
+}
 
 /**
 	@brief Print shape string in viewport space. Markers  
@@ -247,26 +350,15 @@ void kaelBook_drawShape(KaelBook *book, KaelBook_shape *shapePtr){
 	rowBuf->readPtr = (uint8_t *)shapePtr->string;
 
 	//shape space position
-	uint16_t col=0;
-	uint16_t row=0;
-	kaelBook_movInShape(book, shapePtr, col, row);
+	kaelBook_movInShape(book, shapePtr, 0, 0);
 	
-	while(row < shapePtr->size[1]){ //within shape
-		if(col >= shapePtr->size[0]){
-			//Move cursor to next row in shape
-			col=0;
-			row++;
-			kaelBook_movInShape(book, shapePtr, col, row);
-		}
-
-		if( kaelTui_isBotClip(book, shapePtr, row) ){
-			//Bottom rows can't affect view
-			return;
-		}
-
-		kaelBook_parseChar(book, rowBuf, shapePtr, &col, &row);	
+	if(shapePtr->drawMode == drawMode_pixel){
+		kaelBook_drawPixelString(book, rowBuf, shapePtr);
+	}else{
+		kaelBook_drawShapeString(book, rowBuf, shapePtr);
 	}
-	return;
+
+	kaelTui_pushMarkerStyle(rowBuf, ansiReset);
 }
 
 /**
@@ -276,14 +368,13 @@ void kaelBook_drawQueue(KaelBook *book){
 	KAEL_ASSERT(book!=NULL);
 
 	//reset screen
-	const char *termRst = "\033[2J";
 	kaelTui_pushMarkerStyle(&book->rowBuf, ansiReset);
-	kaelTui_pushChar(&book->rowBuf,termRst,sizeof(termRst));
 	
 	//Iterate drawQueue
 	while(!kaelTree_empty(&book->drawQueue)){
 		KaelBook_shape *shapePtr = *(KaelBook_shape **)kaelTree_back(&book->drawQueue);
 		kaelTree_pop(&book->drawQueue);
+
 		kaelBook_drawShape(book, shapePtr);
 	}
 
@@ -292,7 +383,6 @@ void kaelBook_drawQueue(KaelBook *book){
 	kaelTui_printRowBuf(&book->rowBuf);
 	fflush(stdout);
 }
-
 /**
  * @brief Switch active page and add every shape to draw queue that are visible
  */
@@ -304,25 +394,101 @@ void kaelBook_switchPage(KaelBook *book, uint16_t index){
 	}
 	index = kaelMath_min(index, kaelTree_length(&book->page));
 	book->index=index;
-	KaelBook_page *pagePtr = kaelTree_get(&book->page,index);
+}
 
-	//Iterate shapes
+/**
+ * @brief add page shapes visible in viewport to drawQueue 
+ */
+void kaelBook_queueViewShapes(KaelBook *book){
+	KaelBook_page *pagePtr = kaelTree_get(&book->page, book->index);
 	if(kaelTree_empty(&pagePtr->shape)){
 		return;
 	}
+	//iterator
 	KaelBook_shape *shapePtr = kaelTree_begin(&pagePtr->shape);
 	while(shapePtr){
-		//TODO: check if shape overlaps with viewport and push only those
-		kaelTree_push(&book->drawQueue, &shapePtr);
+		if( kaelTui_isShapeInView(book, shapePtr) ){
+			kaelTree_push(&book->drawQueue, &shapePtr);
+		}
 		kaelTree_next(&pagePtr->shape, (void**)&shapePtr);
 	}
 }
 
 /**
-	@brief Place cursor at end of the page and reset style
+	@brief Scroll viewport up or down and add affected shapes to queue
 */	
-void kaelBook_resetStyle(KaelBook *book){
-	kaelTui_pushMarkerStyle(&book->rowBuf, ansiReset);
-	kaelTui_pushMov(&book->rowBuf, 0, book->size[1]);
-	kaelTui_printRowBuf(&book->rowBuf);
+void kaelBook_scrollRows(KaelBook *book, uint16_t scrollCount, uint16_t scrollUp){
+	KaelBook_page *pagePtr = kaelTree_get(&book->page, book->index);
+	if(kaelTree_empty(&pagePtr->shape)){
+		return;
+	}
+
+	uint16_t rowY0,rowY1;
+	scrollCount = kaelMath_min(scrollCount, book->viewPos[1]); //Ensure non-negative row
+	if(scrollCount==0){
+		return;
+	}
+
+	//calculate new row ranges in book space and update viewport position
+	if(scrollUp){
+		rowY0 = book->viewPos[1] + (book->size[1]); //Beginning of old bottom row
+		rowY1 = book->viewPos[1] + (book->size[1]) + scrollCount; //End of new bottom row
+
+		book->viewPos[1]+= scrollCount;
+		//No clearing as long viewport stays {0,0}
+	}else{
+		rowY0 = book->viewPos[1] - scrollCount; //new top row
+		rowY1 = book->viewPos[1]; //old top row
+
+		book->viewPos[1]-= scrollCount;
+
+		//Clear bottom rows that will go out of viewport
+		uint16_t firstClippedRow = book->size[1] -scrollCount;
+		for(uint16_t i=0; i<scrollCount; i++){
+			kaelTui_pushMov(&book->rowBuf, 0, firstClippedRow + i);
+			kaelTui_pushChar(&book->rowBuf, kaelTui_escSeq[escSeq_clearRow], kaelTui_escSeqLen[escSeq_clearRow]);
+		}
+	}
+
+	kaelTui_pushScroll(&book->rowBuf, scrollCount, scrollUp);
+	//iterator
+	KaelBook_shape *shapePtr = kaelTree_begin(&pagePtr->shape);
+	while(shapePtr){
+		if( kaelTui_isShapeInRows(shapePtr, rowY0, rowY1) ){
+			//Check what shapes need to be redrawn
+			kaelTree_push(&book->drawQueue, &shapePtr);
+		}
+		kaelTree_next(&pagePtr->shape, (void**)&shapePtr);
+	}
+}
+
+
+/**
+	@brief Scroll viewport left or right, requires redrawing everything as most terminal emus don't support this
+*/	
+void kaelBook_scrollCols(KaelBook *book, uint16_t scrollCount, uint16_t scrollLeft){
+	KaelBook_page *pagePtr = kaelTree_get(&book->page, book->index);
+	if(kaelTree_empty(&pagePtr->shape)){
+		return;
+	}
+
+	//Clear terminal
+	kaelTui_pushChar(&book->rowBuf, kaelTui_escSeq[escSeq_clear], kaelTui_escSeqLen[escSeq_clear]);
+
+	if(scrollLeft){
+		book->viewPos[0]+= scrollCount;
+	}else{
+		scrollCount = kaelMath_min(scrollCount, book->viewPos[0]); //Ensure non-negative row
+		book->viewPos[0]-= scrollCount;
+	}
+
+	//iterator
+	KaelBook_shape *shapePtr = kaelTree_begin(&pagePtr->shape);
+	while(shapePtr){
+		if( kaelTui_isShapeInView(book, shapePtr) ){
+			//Queue every visible shape
+			kaelTree_push(&book->drawQueue, &shapePtr);
+		}
+		kaelTree_next(&pagePtr->shape, (void**)&shapePtr);
+	}
 }
