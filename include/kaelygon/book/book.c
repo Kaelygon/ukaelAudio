@@ -424,10 +424,6 @@ void kaelBook_scrollRows(KaelBook *book, uint16_t scrollCount, uint16_t scrollUp
 	}
 
 	uint16_t rowY0,rowY1;
-	scrollCount = kaelMath_min(scrollCount, book->viewPos[1]); //Ensure non-negative row
-	if(scrollCount==0){
-		return;
-	}
 
 	//calculate new row ranges in book space and update viewport position
 	if(scrollUp){
@@ -437,6 +433,11 @@ void kaelBook_scrollRows(KaelBook *book, uint16_t scrollCount, uint16_t scrollUp
 		book->viewPos[1]+= scrollCount;
 		//No clearing as long viewport stays {0,0}
 	}else{
+		scrollCount = kaelMath_min(scrollCount, book->viewPos[1]); //Ensure non-negative row
+		if(scrollCount==0){
+			return;
+		}
+		
 		rowY0 = book->viewPos[1] - scrollCount; //new top row
 		rowY1 = book->viewPos[1]; //old top row
 

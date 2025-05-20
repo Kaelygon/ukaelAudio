@@ -1,6 +1,11 @@
+/**
+ * @file bookUnit.c
+ * 
+ * @brief Test program for book.c
+ */
 
 #include <stdlib.h>
-#include<unistd.h>
+#include <unistd.h>
 
 #include "kaelygon/book/book.h"
 #include "kaelygon/math/math.h"
@@ -151,21 +156,21 @@ void unit_kaelBook(){
 	kaelBook_switchPage(&book,0);
 
 	book.viewPos[0] = 0;
-	book.viewPos[1] = 8;
+	book.viewPos[1] = 16;
 
 	kaelBook_queueViewShapes(&book);
 	kaelBook_drawQueue(&book);
 
-	for(int16_t i=-22; i<22+8; i++){
+	for(uint16_t j=0; j<5; j++){
 
-		kaelBook_scrollRows(&book,1,i<0);
-		kaelBook_resetStyle(&book);
-		kaelBook_drawQueue(&book);
-		kaelBook_resetStyle(&book);
+		for(uint16_t i=0; i<30; i++){
 
-		usleep(100000);
+			kaelBook_scrollRows(&book,1,j%2);
+			kaelBook_drawQueue(&book);
+
+			usleep(100000);
+		}
 	}
-
 
 	kaelBook_resetStyle(&book);
 	kaelBook_freeBook(&book);
