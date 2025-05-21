@@ -20,104 +20,93 @@ uint16_t AUDIO_SAMPLE_RATE = 32768U;
 // ------ Debug implementation ------
 #if KAEL_DEBUG==1
 
-//Debug constants
-
-//string indices
-enum KaelDebug_strIndices{
-	KAELDEBUG_ERROR_STR,
-	KAELDEBUG_NOTE_STR,
-	KAELDEBUG_STR_COUNT
-};
-
-static const uint16_t _debugStrLength = 256U;
 typedef struct{
-	KaelStr infoStr[KAELDEBUG_STR_COUNT];
+	FILE *log;
+    pthread_mutex_t logMutex;
 } KaelDebug;
 
-//global data, used only during debugging
-extern KaelDebug *GLOBAL_DEBUG;
-
-
-KaelDebug *GLOBAL_DEBUG = NULL;
-static const char _defaultDebugStr[2][11] = {
-    " BOF DEBUG",
-    " BOF INFO\0"
-};
+KaelDebug *kaelDebug = NULL;
 
 //--- alloc free ---
-uint8_t kaelDebug_allocGlobal(){
-    GLOBAL_DEBUG = malloc(sizeof(KaelDebug));
-    if(GLOBAL_DEBUG==NULL){
-        printf("Error in global debug string.\n");
+uint8_t kaelDebug_alloc(const char *programName){
+    kaelDebug = malloc(sizeof(KaelDebug));
+    if(kaelDebug==NULL){
+        printf("Failed to alloc kaelDebug\n");
         return KAEL_ERR_NULL;
     }
-    uint8_t code = KAEL_SUCCESS;
-    uint8_t outCode = code;
 
-    for(uint8_t i=0; i<KAELDEBUG_STR_COUNT; i++){
-        code = kaelStr_alloc(&GLOBAL_DEBUG->infoStr[i], _debugStrLength);
-        if(code){outCode=code;}
-	    code = kaelStr_setCstr(&GLOBAL_DEBUG->infoStr[i], _defaultDebugStr[i]);
-        if(code){outCode=code;}
+    if (pthread_mutex_init(&kaelDebug->logMutex, NULL) != 0) {
+        printf("Failed to init logMutex\n");
+        free(kaelDebug);
+        return KAEL_ERR_ALLOC;
     }
 
-    return outCode;
+    kaelDebug->log = fopen("./generated/kael.log","a");
+    if(kaelDebug->log==NULL){
+        pthread_mutex_destroy(&kaelDebug->logMutex);
+        free(kaelDebug);
+        return KAEL_ERR_ALLOC;
+    }
+
+    time_t now = time(NULL);
+    char *dateStr = ctime(&now);
+    if(dateStr != NULL) {
+        fprintf(kaelDebug->log, "###### %s ######\n", programName);    
+        fprintf(kaelDebug->log, "%s\n", dateStr);
+    }
+
+    return KAEL_SUCCESS;
 }
 
-void kaelDebug_freeGlobal(){
-    if(GLOBAL_DEBUG==NULL){return;}
-    for(uint8_t i=0; i<KAELDEBUG_STR_COUNT; i++){
-        kaelStr_free(&GLOBAL_DEBUG->infoStr[i]);
-    }
-    free(GLOBAL_DEBUG);
+void kaelDebug_free(){
+    if(kaelDebug==NULL){return;}
+    fflush(kaelDebug->log);
+    fclose(kaelDebug->log);
+    pthread_mutex_destroy(&kaelDebug->logMutex);
+    free(kaelDebug);
 }
 
 //--- Functions called by macros ---
 
 uint8_t kaelDebug_nullCheck(const void* ptr, const char *ptrName, const char *note) {
     if(ptr==NULL){
-        if(GLOBAL_DEBUG==NULL){
-            return 1;}
-        char buffer[64];
-        snprintf(buffer, sizeof(buffer), "NULL%s_%s ", ptrName, note);
-        buffer[sizeof(buffer) - 1] = '\0'; // Ensure null termination
-        kaelStr_pushCstr(&GLOBAL_DEBUG->infoStr[KAELDEBUG_ERROR_STR], buffer);
-
-        printf("%s",buffer);
+        if(kaelDebug==NULL){
+            return KAEL_ERR_NULL;
+        }
+        pthread_mutex_lock(&kaelDebug->logMutex);
+            fprintf(kaelDebug->log, "NULL%s_%s\n", ptrName, note);
+        pthread_mutex_unlock(&kaelDebug->logMutex);
         return KAEL_ERR_NULL;
     }
     return KAEL_SUCCESS;
 }
 
 void kaelDebug_storeNote(const char *note){
-    if(GLOBAL_DEBUG==NULL){
-        return;}
-    kaelStr_pushCstr(&GLOBAL_DEBUG->infoStr[KAELDEBUG_NOTE_STR], note);
+    if(kaelDebug==NULL){
+        return;
+    }
+    pthread_mutex_lock(&kaelDebug->logMutex);
+        fprintf(kaelDebug->log, note);
+    pthread_mutex_unlock(&kaelDebug->logMutex);
 }
 
-//--- Other ---
-
-uint8_t kaelDebug_printInfoStr(){
-    if(GLOBAL_DEBUG==NULL){
-        printf("Error printing debug\n");
-        return KAEL_ERR_NULL;
-    }
-    uint8_t outCode = KAEL_SUCCESS;
-	printf("/********************\n");
-    for(uint8_t i=0; i<KAELDEBUG_STR_COUNT; i++){
-        kaelStr_print(&GLOBAL_DEBUG->infoStr[i]);
-	    uint8_t code = kaelStr_setCstr(&GLOBAL_DEBUG->infoStr[i], _defaultDebugStr[i]);
-        if(code){outCode=code;}
-
-        printf("\n");
-    }
-	printf("\n********************/\n\n");
-    return outCode;
-}
 
 
 #else
 // --- Release specific implementation ---
-//If any
+
+    //--- dummy alloc/free ---
+    //Dummy arguments that we don't have to define guard every test file 
+    uint8_t kaelDebug_alloc(__attribute__((unused)) const char *dummy){
+        return KAEL_SUCCESS;
+    }
+
+    void kaelDebug_free(){
+        fflush(stdout);
+    }
+
+    uint8_t kaelDebug_nullCheck(const void* ptr){
+        return ptr==NULL ? 1 : 0;
+    }
 
 #endif

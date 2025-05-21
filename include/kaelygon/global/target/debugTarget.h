@@ -1,5 +1,5 @@
 /**
- * @file kaelDebug.h
+ * @file debugTarget.h
  * 
  * @brief kaelMacros implementation header for CMake DEBUG target
  */
@@ -10,6 +10,7 @@
 
 #include <assert.h>
 #include <stdio.h>
+#include <time.h>
 
 #include "kaelygon/string/string.h"
 
@@ -42,7 +43,5 @@
 uint8_t kaelDebug_nullCheck(const void* ptr, const char *ptrName, const char *note); //DEBUG
 void kaelDebug_storeNote(const char *note); //INFO
 
-uint8_t kaelDebug_allocGlobal();
-void kaelDebug_freeGlobal();
-
-uint8_t kaelDebug_printInfoStr();
+uint8_t kaelDebug_alloc(const char *programName);
+void kaelDebug_free();

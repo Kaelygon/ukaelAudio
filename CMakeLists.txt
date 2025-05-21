@@ -182,13 +182,6 @@ function(f_separate_main_files _sourceList _remMainFiles)
 	set(${_sourceList} ${_tempList} PARENT_SCOPE)
 endfunction()
 
-#Inject macros
-function(f_inject_target_macro TARGET CONDITION MACRO)
-	if(${CONDITION})
-		target_compile_definitions(${TARGET} PRIVATE ${MACRO})
-	endif()
-endfunction()
-
 
 
 
@@ -245,9 +238,15 @@ function(f_build_active_source _mainDirectory _mainBaseName _implemList)
 	### Link .c implementation files
 	target_sources(${_progName} PRIVATE ${_implemList}) 
 
-
 	#Inject debug macro
-	f_inject_target_macro("${_progName}" "BUILD_TYPE STREQUAL DEBUG" "KAEL_DEBUG=1") 
+	if(BUILD_TYPE STREQUAL "DEBUG")
+	set(_debugState 1)
+	else()
+		set(_debugState 0)
+	endif()
+
+	target_compile_definitions(${_progName} PRIVATE KAEL_DEBUG=${_debugState})
+	message("${Gray}Injected: #define KAEL_DEBUG ${_debugState}")
 
 endfunction()
 

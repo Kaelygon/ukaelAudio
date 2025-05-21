@@ -5,19 +5,19 @@
  */
 #pragma once
 
+#include <stdio.h>
+
+#include "kaelygon/global/kaelMacros.h"
+#include "kaelygon/math/math.h"
 #include "kaelygon/treeMem/tree.h"
 
-#include "kaelygon/math/math.h"
-#include "kaelygon/global/kaelMacros.h"
-
-#include <stdio.h>
 
 //Enumerates *kaelTui_escSeq[]
 typedef enum{
 	escSeq_clear,
 	escSeq_clearRow,
+	escSeq_ansiReset
 }KaelTui_escSeqIndex;
-
 extern const char *kaelTui_escSeq[]; 
 extern const uint8_t kaelTui_escSeqLen[];
 
@@ -28,14 +28,14 @@ typedef enum{
 	ansiBGLow,
 	ansiBGHigh,
 }KaelTui_ansiMod;
-
-extern uint8_t kaelTui_ansiMod[4];
+extern const uint8_t kaelTui_ansiMod[4];
 
 /**
  * @brief fancy string print buffer
  */
 typedef struct{
 	uint8_t* s; //buffer address 
+	uint8_t ownsBuffer; //owns .s allocation and it should be freed 
 	uint16_t pos; //Write position of .s
 	uint16_t size; //buffer .s size
 	const uint8_t* readPtr; //string char index being read
@@ -119,5 +119,7 @@ void kaelTui_pushSpace(KaelTui_rowBuffer *rowBuf, uint16_t spaceCount);
 void kaelTui_pushMarkerStyle(KaelTui_rowBuffer *rowBuf, uint8_t rawByte);
 void kaelTui_pushChar(KaelTui_rowBuffer *rowBuf, const char *string, const uint8_t bytes);
 void kaelTui_pushScroll(KaelTui_rowBuffer *rowBuf, uint8_t scrollCount, uint8_t scrollUp);
+
+void kaelTui_pushLimitScroll(KaelTui_rowBuffer *rowBuf, uint16_t col, uint16_t row);
 
 void kaelTui_pushMov(KaelTui_rowBuffer *rowBuf, uint16_t col, uint16_t row);

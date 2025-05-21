@@ -8,11 +8,13 @@
 
 #include <stdlib.h>
 #include <stdint.h>
+#include <pthread.h>
 
 extern uint16_t AUDIO_BUFFER_SIZE;
 extern uint16_t AUDIO_SAMPLE_RATE;
 
 //CMake should generate this macro 'KAEL_DEBUG 1'
+//code-oss won't know this so this decides which define branches are grayed out
 #ifndef KAEL_DEBUG
 	#define KAEL_DEBUG 1
 #endif

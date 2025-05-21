@@ -7,6 +7,7 @@
 
 #include <stdint.h>
 #include <limits.h>
+#include <string.h>
 #include "kaelygon/global/kaelMacros.h"
 
 //kaelmath

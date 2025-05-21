@@ -18,12 +18,6 @@
 	
 */
 
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <string.h>
-
 #include "kaelygon/global/kaelMacros.h"
 #include "kaelygon/treeMem/tree.h"
 #include "kaelygon/math/math.h"

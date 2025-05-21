@@ -20,6 +20,7 @@ KaelBook_shape kaelBook_genCheckerboard(uint16_t width, uint16_t height, uint16_
 	shape.pos[0]   = col;
 	shape.pos[1]   = row;
 
+	KaelTui_ansiStyle blackText = kaelTui_encodeStyle( ansiFGLow, ansiBlack, ansiBold );
 	KaelTui_ansiStyle highCol = kaelTui_encodeStyle( ansiBGHigh, ansiWhite, ansiBold );
 	KaelTui_ansiStyle lowCol  = kaelTui_encodeStyle( ansiBGHigh, ansiBlue , ansiBold );
 	KaelTui_ansiStyle curCol = highCol;
@@ -29,12 +30,16 @@ KaelBook_shape kaelBook_genCheckerboard(uint16_t width, uint16_t height, uint16_
 
 	KaelTree tmpString;
 	kaelTree_alloc(&tmpString, sizeof(uint8_t));
-	
+
 	//rounded to nearest full squares
 	size_t cellsTotal = ((width)/ratio[0]+1)*((height)/ratio[1]+1);
 	// half is filled with chars + 2 byte jump markers in every row of every second square + 2 byte style marker every square every row 
-	size_t byteEstimate = width*height/2 + cellsTotal*ratio[1] + 2*cellsTotal*ratio[1] + 1; 
+	size_t byteEstimate = width*height/2 + cellsTotal*ratio[1] + 2*cellsTotal*ratio[1] + 3; 
 	kaelTree_reserve(&tmpString, byteEstimate); 
+
+	kaelTree_push(&tmpString,&(uint8_t){markerStyle});
+	kaelTree_push(&tmpString,&blackText.byte);
+
 	for(uint16_t j=0; j<height; j++){
 		for(uint16_t i=0; i<width; i++){
 			//1=chars, 0=color 
@@ -80,7 +85,7 @@ KaelBook_shape kaelBook_genCheckerboard(uint16_t width, uint16_t height, uint16_
 	return shape;
 }
 
-KaelBook_shape kaelBook_genPixel(uint16_t width, uint16_t height, uint16_t col, uint16_t row){
+KaelBook_shape kaelBook_genPixel(uint16_t width, uint16_t height, uint16_t col, uint16_t row, uint8_t pixelLength){
 	KaelBook_shape shape = {0};
 	shape.size[0]  = width;
 	shape.size[1]  = height;
@@ -88,10 +93,13 @@ KaelBook_shape kaelBook_genPixel(uint16_t width, uint16_t height, uint16_t col, 
 	shape.pos[1]   = row;
 	shape.drawMode	= drawMode_pixel;
 
+	pixelLength = pixelLength&0b1111;
+
 	KaelTree tmpString;
 	kaelTree_alloc(&tmpString, sizeof(uint8_t));
 	
-	size_t byteEstimate = width*height/7+1; 
+	size_t byteEstimate = width*height+8;
+	byteEstimate = pixelLength ? byteEstimate/pixelLength : byteEstimate/8;
 	kaelTree_reserve(&tmpString, byteEstimate);
 
 	size_t pixelCount=0;
@@ -101,7 +109,7 @@ KaelBook_shape kaelBook_genPixel(uint16_t width, uint16_t height, uint16_t col, 
 			uint8_t mixByte = (i + j*height)*13+7;
 			uint8_t bright = (mixByte >> 7) & 0b1;
 			uint8_t color  =  mixByte       & 0b111;
-			uint8_t length = (mixByte >> 4) & 0b1111;
+			uint8_t length = pixelLength ? pixelLength : (mixByte >> 4) & 0b1111;
 
 			KaelBook_pixel pixel = kaelBook_encodePixel(bright, color, length);
 
@@ -140,15 +148,44 @@ KaelBook_page kaelBook_genTestPage(uint16_t bookWidth, uint16_t bookHeight){
 	uint16_t pixelDrawCol = firstShape->pos[0] + firstShape->size[0];
 	uint16_t pixelDrawWidth  = bookWidth	- checkerWidth;
 	uint16_t pixelDrawHeight = checkerHeight;
-	KaelBook_shape pixelDraw = kaelBook_genPixel(pixelDrawWidth, pixelDrawHeight, pixelDrawCol, 0);
+	KaelBook_shape pixelDraw = kaelBook_genPixel(pixelDrawWidth, pixelDrawHeight, pixelDrawCol, 0, 2);
 	kaelTree_push(&testPage.shape, &pixelDraw);
 
 	return testPage;
 }
 
+void unit_kaelBook_scramblePixels(KaelBook *book){
+	KaelBook_shape *shapePtr = kaelBook_getShapeAt(book, 48, 0); //get shape at 48,0
+	if(shapePtr!=NULL && shapePtr->drawMode==drawMode_pixel){
+		//Scramble data
+		uint8_t *readHead = shapePtr->string;
+		while(readHead[0]){
+			switch(readHead[0]){
+				case markerStyle:
+				case markerJump:
+				case markerSpace:
+					readHead++;
+					break;
+				case 0:
+					break;
+				default:
+					KaelBook_pixel pixel = kaelBook_decodePixel((uint8_t)readHead[0]);
+					pixel = kaelBook_encodePixel(pixel.bright, ++pixel.color, pixel.length);
+					readHead[0] = pixel.byte;
+					readHead++;
+					break;
+			}
+		}
+		//add to draw queue
+		kaelTree_push(&book->drawQueue, &shapePtr);
+	}
+}
+
 void unit_kaelBook(){
+
 	KaelBook book;
-	kaelBook_allocBook(&book, 64, 8, 256);
+	uint8_t stringBuffer[1024] = {0};
+	kaelBook_allocBook(&book, 64, 16, stringBuffer, sizeof(stringBuffer));
 
 	KaelBook_page testPage = kaelBook_genTestPage(64, 32);
 	kaelTree_push(&book.page, &testPage);
@@ -156,16 +193,17 @@ void unit_kaelBook(){
 	kaelBook_switchPage(&book,0);
 
 	book.viewPos[0] = 0;
-	book.viewPos[1] = 16;
+	book.viewPos[1] = 0;
 
 	kaelBook_queueViewShapes(&book);
 	kaelBook_drawQueue(&book);
 
-	for(uint16_t j=0; j<5; j++){
+	for(uint16_t j=1; j<5; j++){
+		for(uint16_t i=0; i<8; i++){
 
-		for(uint16_t i=0; i<30; i++){
+			kaelBook_scrollRows(&book,i%2==0,j%2);
 
-			kaelBook_scrollRows(&book,1,j%2);
+			unit_kaelBook_scramblePixels(&book);
 			kaelBook_drawQueue(&book);
 
 			usleep(100000);
@@ -177,7 +215,11 @@ void unit_kaelBook(){
 }
 
 int main() {
+	kaelDebug_alloc("kael_bookUnit");
+
 	unit_kaelBook();
+
+	kaelDebug_free();
 	return 0;
 }
 
