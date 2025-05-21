@@ -199,13 +199,13 @@ void unit_kaelBook(){
 	kaelBook_drawQueue(&book);
 
 	for(uint16_t j=1; j<5; j++){
-		for(uint16_t i=0; i<8; i++){
+		for(uint16_t i=0; i<16; i++){
 
-			kaelBook_scrollRows(&book,i%2==0,j%2);
+			kaelBook_scrollRows(&book,i%4==0,j%2);
 
 			unit_kaelBook_scramblePixels(&book);
-			kaelBook_drawQueue(&book);
 
+			kaelBook_drawQueue(&book);
 			usleep(100000);
 		}
 	}
@@ -220,6 +220,7 @@ int main() {
 	unit_kaelBook();
 
 	kaelDebug_free();
+
 	return 0;
 }
 

@@ -421,9 +421,11 @@ void kaelBook_drawShapeString(KaelBook *book, KaelTui_rowBuffer *rowBuf, KaelBoo
 	@brief Place cursor at end of the page and reset style
 */	
 void kaelBook_resetStyle(KaelBook *book){
-	kaelTui_pushMarkerStyle(&book->rowBuf, ansiReset);
-	kaelTui_pushMov(&book->rowBuf, 0, book->size[1]+1);
-	kaelTui_printRowBuf(&book->rowBuf);
+	KaelTui_rowBuffer *rowBuf = &book->rowBuf;
+	kaelTui_pushEscSeq		(rowBuf, escSeq_scrollReset);
+	kaelTui_pushEscSeq		(rowBuf, escSeq_styleReset);
+	kaelTui_pushMov			(rowBuf, 0, book->size[1]+1);
+	kaelTui_printRowBuf		(rowBuf);
 	fflush(stdout);
 }
 
@@ -447,7 +449,7 @@ void kaelBook_drawShape(KaelBook *book, KaelBook_shape *shapePtr){
 		kaelBook_drawShapeString(book, rowBuf, shapePtr);
 	}
 
-	kaelTui_pushMarkerStyle(rowBuf, ansiReset);
+	kaelTui_pushEscSeq(rowBuf, escSeq_styleReset);
 }
 
 /**
@@ -458,7 +460,7 @@ void kaelBook_drawQueue(KaelBook *book){
 	KAEL_ASSERT(book!=NULL);
 
 	//reset screen
-	kaelTui_pushMarkerStyle(&book->rowBuf, ansiReset);
+	kaelTui_pushEscSeq(&book->rowBuf, escSeq_styleReset);
 	
 	//Iterate drawQueue
 	while(!kaelTree_empty(&book->drawQueue)){
@@ -565,7 +567,7 @@ void kaelBook_scrollCols(KaelBook *book, uint16_t scrollCount, uint16_t scrollLe
 	}
 
 	//Clear terminal
-	kaelTui_pushChar(&book->rowBuf, kaelTui_escSeq[escSeq_clear], kaelTui_escSeqLen[escSeq_clear]);
+	kaelTui_pushEscSeq(&book->rowBuf, escSeq_clear);
 
 	if(scrollLeft){
 		book->viewPos[0]+= scrollCount;

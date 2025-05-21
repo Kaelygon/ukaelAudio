@@ -14,7 +14,8 @@
 const char *kaelTui_escSeq[] = {
 	"\x1b[2J",	//escSeq_clear
 	"\x1b[2K",	//escSeq_clearRow
-	"\x1b[0m"	//escSeq_ansiReset (style)
+	"\x1b[0m",	//escSeq_styleReset
+	"\x1b[r"		//escSeq_scrollReset
 };
 
 /**
@@ -23,7 +24,8 @@ const char *kaelTui_escSeq[] = {
 const uint8_t kaelTui_escSeqLen[] = {
 	4,	//escSeq_clear
 	4,	//escSeq_clearRow
-	4,
+	4,	//escSeq_styleReset
+	3	//escSeq_scrollReset
 };
 
 /**
@@ -61,9 +63,17 @@ uint8_t kaelTui_u16ToString(uint16_t value, char *buf) {
 	return i;
 }
 
+
+/*
+* Ansi reset is normally kaelTui_encodeStyle(0,0,0) but this is reseved for NULL because 
+* If rowBuffer string endend in a [markerStyle], it would read 1 byte out of bounds
+* This also means that both escSeq_styleReset and kaelTui_encodeStyle(3,7,7)=0xFF are reset
+*/
+
 /**
  * @brief Encode ansi color into a single byte
- */
+ *
+ */ 
 KaelTui_ansiStyle kaelTui_encodeStyle(const uint8_t modIndex, const uint8_t color, const uint8_t style){
 	KaelTui_ansiStyle code = {
 		.mod	 = modIndex	& 0b11,
@@ -164,6 +174,13 @@ void kaelTui_pushChar(KaelTui_rowBuffer *rowBuf, const char *string, const uint8
 }
 
 /**
+ * @brief Wrapper function to push escSeq array by index
+ */
+void kaelTui_pushEscSeq(KaelTui_rowBuffer *rowBuf, uint16_t index){
+	kaelTui_pushChar(rowBuf, kaelTui_escSeq[index], kaelTui_escSeqLen[index]);
+}
+
+/**
  * @brief Push escSeq Move terminal cursor
 */
 void kaelTui_pushMov(KaelTui_rowBuffer *rowBuf, uint16_t col, uint16_t row){
@@ -208,11 +225,14 @@ void kaelTui_pushScroll(KaelTui_rowBuffer *rowBuf, uint8_t scrollCount, uint8_t 
 	}
 }
 
+/**
+ * @brief Push decoded kaelTui_ansiCode.byte to string  
+ */
 void kaelTui_pushMarkerStyle(KaelTui_rowBuffer *rowBuf, uint8_t rawByte){
 	KAEL_ASSERT(rowBuf!=NULL);
 
 	if ( rawByte == ansiReset ) {
-		kaelTui_pushChar(rowBuf, kaelTui_escSeq[escSeq_ansiReset], kaelTui_escSeqLen[escSeq_ansiReset]);
+		kaelTui_pushChar(rowBuf, kaelTui_escSeq[escSeq_styleReset], kaelTui_escSeqLen[escSeq_styleReset]);
 		return;
 	}
 

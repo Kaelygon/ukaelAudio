@@ -11,25 +11,6 @@
 #include "kaelygon/math/math.h"
 #include "kaelygon/treeMem/tree.h"
 
-
-//Enumerates *kaelTui_escSeq[]
-typedef enum{
-	escSeq_clear,
-	escSeq_clearRow,
-	escSeq_ansiReset
-}KaelTui_escSeqIndex;
-extern const char *kaelTui_escSeq[]; 
-extern const uint8_t kaelTui_escSeqLen[];
-
-//Enumerates kaelTui_ansiMod[4]
-typedef enum{
-	ansiFGLow,
-	ansiFGHigh,
-	ansiBGLow,
-	ansiBGHigh,
-}KaelTui_ansiMod;
-extern const uint8_t kaelTui_ansiMod[4];
-
 /**
  * @brief fancy string print buffer
  */
@@ -41,28 +22,53 @@ typedef struct{
 	const uint8_t* readPtr; //string char index being read
 }KaelTui_rowBuffer;
 
+
+
+
+
 //------ Ansi escape sequence ------
 
-typedef enum {
-	ansiResetLength = 4,
-	ansiMaxLength 	= 8, //Maximum bytes decoded ansi esc seq can take
-}KaelTui_ansiConst;
+/**
+ * @brief Enumerates *kaelTui_escSeq[] and kaelTui_escSeqLen[]
+ */
+typedef enum{
+	escSeq_clear,
+	escSeq_clearRow,
+	escSeq_styleReset,
+	escSeq_scrollReset
+}KaelTui_escSeqIndex;
+
+/**
+ * @brief Enumerates kaelTui_ansiMod[4]
+ */
+typedef enum{
+	ansiFGLow,
+	ansiFGHigh,
+	ansiBGLow,
+	ansiBGHigh,
+}KaelTui_ansiMod;
 
 typedef enum {
-	/*Font style*/
+	ansiMaxLength 	= 8, //Maximum bytes decoded ansi esc seq can take
+	ansiReset 		= 0xFF, 
+}KaelTui_ansiConst;
+
+/**
+ * @brief Font style
+ */
+typedef enum {
 	ansiNone			= 0,
 	ansiBold 		= 1,  
 	ansiUnderline 	= 4, 
 	ansiBlink 		= 5, 
 	ansiReverse 	= 7, 
-	ansiReset 		= 0xFF, // Normally 0 but that's reserved for NULL
 	//ansiHidden	= 8, overflow. Use ansiWhite space or space instead
 }KaelTui_ansiGlyph;
 
+/**
+ * @brief font color
+ */
 typedef enum {
-	/*Font color*/
-
-	/*Foreground MOD_COL to get ansi code*/
 	ansiBlack 	= 0,
 	ansiRed 		= 1, 
 	ansiGreen 	= 2, 
@@ -87,17 +93,19 @@ typedef union {
 }KaelTui_ansiStyle;
 
 /**
- * @brief Special instructions stored as unicode PUA
- * 0xE0 to 0xF8
  * 
  * Formatting in string
  * | [marker]		| [data byte]     |
  * | -----------  | --------------- |
  * | markerStyle	| [ansiCode.byte] | //Print ansi font style esc seq
  * | markerSpace	| [space count]   | //Print white space
- * | markerJump	| [jump count]   | //Space to character without overdraw
+ * | markerJump	| [jump count]   	| //Space to character without overdraw
  * 
  */
+/**
+ * @brief Special instructions stored as unicode PUA
+ * 0xE0 to 0xF8
+*/
 typedef enum{
 	markerStyle = 0xE0,
 	markerSpace,
@@ -106,20 +114,29 @@ typedef enum{
 }KaelTui_Marker;
 
 
+
+
+
 //------ Ansi style escape sequence ------
 
 KaelTui_ansiStyle kaelTui_encodeStyle(const uint8_t mod, const uint8_t color, const uint8_t style);
 uint8_t kaelTui_styleToString(char *escSeq, const KaelTui_ansiStyle ansiStyle, uint16_t offset);
 
-//------ Row Bufffer ------
+//------ Push to Row Bufffer ------
 
 void kaelTui_printRowBuf(KaelTui_rowBuffer *rowBuf);
 
+//Push strings
+void kaelTui_pushChar(KaelTui_rowBuffer *rowBuf, const char *string, const uint8_t bytes);
+void kaelTui_pushEscSeq(KaelTui_rowBuffer *rowBuf, uint16_t index);
+
+//Used in drawing
 void kaelTui_pushSpace(KaelTui_rowBuffer *rowBuf, uint16_t spaceCount);
 void kaelTui_pushMarkerStyle(KaelTui_rowBuffer *rowBuf, uint8_t rawByte);
-void kaelTui_pushChar(KaelTui_rowBuffer *rowBuf, const char *string, const uint8_t bytes);
-void kaelTui_pushScroll(KaelTui_rowBuffer *rowBuf, uint8_t scrollCount, uint8_t scrollUp);
 
+//Panning
+void kaelTui_pushScroll(KaelTui_rowBuffer *rowBuf, uint8_t scrollCount, uint8_t scrollUp);
 void kaelTui_pushLimitScroll(KaelTui_rowBuffer *rowBuf, uint16_t col, uint16_t row);
 
+//Cursor move
 void kaelTui_pushMov(KaelTui_rowBuffer *rowBuf, uint16_t col, uint16_t row);
