@@ -10,5 +10,6 @@
 /vgcore.*
 /doxygen/*
 /*.log
-/assets
 /cachegrind*
+/assets/png/tga~
+/assets/png/png~

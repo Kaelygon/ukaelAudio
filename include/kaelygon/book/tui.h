@@ -1,5 +1,5 @@
 /**
- * @file tui.c
+ * @file tui.h
  * 
  * @brief Header, Text User Interface tools
  */
@@ -67,17 +67,27 @@ typedef enum {
 
 /**
  * @brief font color
+ * color format [bright : 1 bit] [color  : 3 bit]
  */
 typedef enum {
-	ansiBlack 	= 0,
-	ansiRed 		= 1, 
-	ansiGreen 	= 2, 
-	ansiYellow 	= 3, 
-	ansiBlue 	= 4, 
-	ansiMagenta = 5, 
-	ansiCyan 	= 6, 
-	ansiWhite 	= 7, 
+	ansiBlack 	= 0b0000,
+	ansiRed		, 
+	ansiGreen	, 
+	ansiYellow	, 
+	ansiBlue		, 
+	ansiMagenta	, 
+	ansiCyan		, 
+	ansiWhite	, 
 
+	//Used by TGA->KRLE color4bit conversion
+	ansiBrightBlack	= 0b1000,
+	ansiBrightRed		,
+	ansiBrightGreen	,
+	ansiBrightYellow	,
+	ansiBrightBlue		,
+	ansiBrightMagenta	,
+	ansiBrightCyan		,
+	ansiBrightWhite	,
 }KaelTui_ansiColor;
 
 /**

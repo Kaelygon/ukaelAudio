@@ -21,13 +21,22 @@ typedef union {
 	uint8_t byte;
 }KaelBook_pixel;
 
+//Length 0 pixel values can be used for special markers
+// byte = [hi : 4bit, lo: 4bit] 0b####0000
+typedef enum{
+	pixelJump   	 = 1<<4u, //Advance by next (uint8_t)byte
+	pixelModeRun  	 = 2<<4u, //TODO: Switch mode, [color  : 4bit, length : 4bit]
+	pixelModePair 	 = 3<<4u, //TODO: Switch mode, [color1 : 4bit, color2 : 4bit]
+}KaelBook_pixelMarker;
+
+
 //What way should the string be drawn?
 typedef enum{
 	drawMode_default	= 0,
 
-	//Pack pixel stripes in 1 byte. [4bit : color] [4bit : length]
+	//Pack pixel stripes in 1 byte. [4bit : color, 4bit : length]
 	drawMode_pixel,	
-}KaelShape_drawMode;
+}KaelBook_drawMode;
 
 //Not much reason to add length yet. 
 //One benefit would be partially hidden shape drawing if length is known, 

@@ -223,7 +223,7 @@ KaelBook_pixel kaelBook_encodePixel(uint8_t bright, uint8_t color, uint8_t lengt
 	pixel.bright = bright&0b1;
 	pixel.color = color&0b111;
 	pixel.length = length&0b1111;
-	pixel.length = pixel.length==0 ? 1 : pixel.length;
+	pixel.byte = pixel.byte==0 ? 0b00010000 : pixel.byte; //Can't be null byte
 	return pixel;
 }
 
@@ -233,10 +233,8 @@ KaelBook_pixel kaelBook_encodePixel(uint8_t bright, uint8_t color, uint8_t lengt
 KaelBook_pixel kaelBook_decodePixel(uint8_t byte){
 	KaelBook_pixel pixel;
 	pixel.byte = byte;
-	pixel.length = pixel.length==0 ? 1 : pixel.length;
 	return pixel;
 }
-
 
 /**
  * @brief Convert drawMode_pixel into KaelTui_ansiStyle
@@ -368,27 +366,42 @@ void kaelBook_parseChar(KaelBook *book, KaelTui_rowBuffer *rowBuf, KaelBook_shap
 void kaelBook_drawPixelString(KaelBook *book, KaelTui_rowBuffer *rowBuf, KaelBook_shape *shapePtr){
 	uint16_t col=0;
 	uint16_t row=0;
+	
 	while( row < shapePtr->size[1] && ! kaelBook_isBotClip(book, shapePtr, row)){ //within shape
 		if(rowBuf->readPtr[0]==0){
 			//Null terminate
 			break;
 		}
 
-		kaelBook_movInShape(book, shapePtr, col, row);
+		
+		switch(rowBuf->readPtr[0]){
+			case 0:
+				return;
+				
+			case pixelJump:
+				rowBuf->readPtr++;
+				kaelBook_solveJumpMarker(book, shapePtr, &col, &row, rowBuf->readPtr[0]);
+				rowBuf->readPtr++;
+				break;
 
-		KaelBook_pixel pixel = kaelBook_decodePixel((uint8_t)rowBuf->readPtr[0]);
-		rowBuf->readPtr++;
-		//Get color
-		KaelTui_ansiStyle ansiStyle = kaelBook_pixelToStyle(pixel);
-		kaelTui_pushMarkerStyle(rowBuf, ansiStyle.byte);
-
-		kaelBook_solveSpaceMarker(book, rowBuf, shapePtr, &col, &row, pixel.length);
+			default:
+				//pixel
+				KaelBook_pixel pixel = kaelBook_decodePixel((uint8_t)rowBuf->readPtr[0]);
+				KaelTui_ansiStyle ansiStyle = kaelBook_pixelToStyle(pixel);
+				kaelTui_pushMarkerStyle(rowBuf, ansiStyle.byte);
+		
+				kaelBook_solveSpaceMarker(book, rowBuf, shapePtr, &col, &row, pixel.length);
+				rowBuf->readPtr++;
+				break;		
+		}
 
 		if(col >= shapePtr->size[0]){
 			//Move cursor to next row in shape
 			col = 0;
 			row++;
+			kaelBook_movInShape(book, shapePtr, col, row);
 		}
+		
 	}
 }
 
@@ -399,8 +412,8 @@ void kaelBook_drawPixelString(KaelBook *book, KaelTui_rowBuffer *rowBuf, KaelBoo
 void kaelBook_drawShapeString(KaelBook *book, KaelTui_rowBuffer *rowBuf, KaelBook_shape *shapePtr){
 	uint16_t col=0;
 	uint16_t row=0;
+	
 	while( ! kaelBook_isBotClip(book, shapePtr, row)){ //within shape
-		kaelBook_movInShape(book, shapePtr, col, row);
 
 		kaelBook_parseChar(book, rowBuf, shapePtr, &col, &row);	
 
@@ -408,6 +421,7 @@ void kaelBook_drawShapeString(KaelBook *book, KaelTui_rowBuffer *rowBuf, KaelBoo
 			//Move cursor to next row in shape
 			col = 0;
 			row++;
+			kaelBook_movInShape(book, shapePtr, col, row);
 		}
 	}
 }

@@ -85,8 +85,6 @@ KaelTui_ansiStyle kaelTui_encodeStyle(const uint8_t modIndex, const uint8_t colo
 
 
 
-
-
 //------ Buffer printing ------
 
 /**

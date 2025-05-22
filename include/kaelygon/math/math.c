@@ -55,6 +55,26 @@ uint8_t kaelMath_log10(uint16_t num){
 	;
 }
 
+//------ pack nible ------
+
+
+/**
+ * @brief Pack nible to uint8_t
+ */
+uint8_t kaelMath_u8pack(uint8_t hi, uint8_t lo){
+	return (hi<<4) | (lo&0b1111);
+}
+
+/**
+ * @brief Unpack nible to hi, lo parts
+ */
+void kaelMath_u8unpack(uint8_t byte, uint8_t *hi, uint8_t *lo){
+	*hi = byte>>4;
+	*lo = byte&0b1111;
+}
+
+//------ bitwise ------
+
 /**
  * @brief rotate right 16-bit
  */

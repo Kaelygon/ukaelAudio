@@ -21,6 +21,9 @@ uint16_t kaelMath_sub(uint16_t a, uint16_t b);
 
 uint8_t kaelMath_log10(uint16_t num);
 
+uint8_t kaelMath_u8pack(uint8_t hi, uint8_t lo);
+void kaelMath_u8unpack(uint8_t byte, uint8_t *hi, uint8_t *lo);
+
 uint16_t kaelMath_rorr(uint16_t num, const uint16_t shift);
 uint8_t kaelMath_u8rorr(uint8_t num, uint8_t shift);
 
