@@ -378,7 +378,7 @@ void kaelBook_drawPixelString(KaelBook *book, KaelTui_rowBuffer *rowBuf, KaelBoo
 			case 0:
 				return;
 				
-			case pixelJump:
+			case pixelRunJump:
 				rowBuf->readPtr++;
 				kaelBook_solveJumpMarker(book, shapePtr, &col, &row, rowBuf->readPtr[0]);
 				rowBuf->readPtr++;

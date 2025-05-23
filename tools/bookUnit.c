@@ -2,6 +2,8 @@
  * @file bookUnit.c
  * 
  * @brief Test program for book.c
+ * 
+ * TODO: Pixel mode is currently broken as I am drafting KRLE standard
  */
 
 #include <stdlib.h>

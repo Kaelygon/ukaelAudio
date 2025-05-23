@@ -12,6 +12,8 @@
 #include "kaelygon/treeMem/tree.h"
 #include "kaelygon/book/tui.h"
 
+#include "krle/krle.h"
+
 typedef union {
 	struct {
 		uint8_t bright   : 1;
@@ -20,15 +22,6 @@ typedef union {
 	};
 	uint8_t byte;
 }KaelBook_pixel;
-
-//Length 0 pixel values can be used for special markers
-// byte = [hi : 4bit, lo: 4bit] 0b####0000
-typedef enum{
-	pixelJump   	 = 1<<4u, //Advance by next (uint8_t)byte
-	pixelModeRun  	 = 2<<4u, //TODO: Switch mode, [color  : 4bit, length : 4bit]
-	pixelModePair 	 = 3<<4u, //TODO: Switch mode, [color1 : 4bit, color2 : 4bit]
-}KaelBook_pixelMarker;
-
 
 //What way should the string be drawn?
 typedef enum{
