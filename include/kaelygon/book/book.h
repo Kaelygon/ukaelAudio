@@ -12,13 +12,13 @@
 #include "kaelygon/treeMem/tree.h"
 #include "kaelygon/book/tui.h"
 
-#include "krle/krle.h"
+#include "krle/krleBase.h"
 
 typedef union {
 	struct {
-		uint8_t bright   : 1;
-		uint8_t color    : 3;
 		uint8_t length   : 4;
+		uint8_t color    : 3;
+		uint8_t bright   : 1;
 	};
 	uint8_t byte;
 }KaelBook_pixel;
@@ -59,7 +59,7 @@ typedef struct{
 
 
 //------ drawMode_pixel ------
-KaelBook_pixel kaelBook_encodePixel(uint8_t bright, uint8_t color, uint8_t length);
+KaelBook_pixel kaelBook_encodePixel(uint8_t color, uint8_t length);
 KaelBook_pixel kaelBook_decodePixel(uint8_t byte);
 
 //------ Alloc / Free ------

@@ -1,7 +1,7 @@
 /**
- * @file krle.h
+ * @file krleTGA.h
  * 
- * @brief header, TGA to KRLE (kael_ run length encoding) conversion and paletize 
+ * @brief header, Conversion tools to convert between TGA and KRLE (Kael Run Length Encoding)
  * 
  * Optimized for printing decoding bytes into ANSI escape codes rather than file size
  */
@@ -18,56 +18,24 @@
 #include "kaelygon/math/math.h"
 #include "kaelygon/treeMem/tree.h"
 
+#include "krle/krleBase.h"
+
 #ifndef KRLE_EXTRA_DEBUGGING
 	#define KRLE_EXTRA_DEBUGGING 0
 #endif
-
-typedef enum{
-	KRLE_SUCCESS				= 0,
-	KRLE_ERR_ZERO_JUMP		= 128,
-	KRLE_ERR_PIXEL_OVERFLOW = 129,
-	KRLE_IDENTICAL_PAIR 		= 130,
-}krle_error;
-
-/*
- * Call marker once 			[pixelRuns : 8bit] [color : 4bit, length 4bit] -||- ...
- * Call marker once 			[pixelPair : 8bit] [color : 4bit, color  4bit] -||- ...
- * Call marker every jump 	[pixelJump : 8bit] [length : 8bit] ...
- * 
- * Markers switch depending if you are in pixelModeRun or pixelModePair
- * This is result of free binary ranges changing depending how the two nibbles are constructed  
- * For example calling pixelModeRun in run mode will results in 1 red pixel
- * 
- * byte nibbles = [hi : 4bit, lo: 4bit]
-*/
-typedef enum{
-	pixelTerminate = 0, //NULL termination character
-
-	// --- pixel run mode ---
-	//@note In run mode there can never be
-	// byte format = [colorONE : 4bit, length : 4bit]
-
-	pixelModePair	= 1<<4u, //TODO: Switch mode, 
-	pixelRunJump	= 2<<4u, //Advance by next (uint8_t)byte in run mode
-
-	// --- Pixel pair mode ---
-	//@note  in pair mode there can never be 2 of the same color so can use markers 0bABCD:ABCD
-	// byte format = [colorONE : 4bit, colorTWO : 4bit]
-
-
-	pixelModeRun	= 1<<4U | 1, //Return to run mode
-	pixelPairJump  = 2<<4u | 2, //jump in pair mode
-
-}Krle_pixelMarker;
 
 #pragma pack(push, 1)
 typedef struct {
 	uint8_t idLength;
 	uint8_t colorMapType;
 	uint8_t dataTypeCode;
+	
+	/* Color Map Specification */
 	uint16_t colorMapOrigin;
 	uint16_t colorMapLength;
 	uint8_t colorMapDepth;
+
+	/* Image Specification */
 	uint16_t xOrigin;
 	uint16_t yOrigin;
 	uint16_t width;
@@ -84,6 +52,8 @@ typedef struct {
 typedef struct {
 	float l, a, b;
 }Krle_LAB;
+
+
 
 
 extern uint8_t krle_orchisPalette[16][3];

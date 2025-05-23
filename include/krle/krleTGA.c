@@ -1,12 +1,12 @@
 /**
- * @file krle.c
+ * @file krleTGA.c
  * 
- * @brief Implementation, TGA to KRLE (kael_ run length encoding) conversion and paletize 
+ * @brief header, Conversion tools to convert between TGA and KRLE (Kael Run Length Encoding)
  * 
  * Optimized for printing decoding bytes into ANSI escape codes rather than file size
  */
 
-#include "krle/krle.h"
+#include "krle/krleTGA.h"
 
 
 /**
@@ -181,29 +181,29 @@ void krle_switchPixelMode(KaelTree *krleFormat, uint8_t *currentMode, uint8_t ne
 		return;
 	}
 	switch(newMode){
-		case pixelModeRun:
-			*currentMode=pixelModeRun;
-			kaelTree_push(krleFormat,&(uint8_t){pixelModeRun});
+		case KRLE_PIXEL_RUN:
+			*currentMode=KRLE_PIXEL_RUN;
+			kaelTree_push(krleFormat,&(uint8_t){KRLE_PIXEL_RUN});
 			break;
-		case pixelModePair:
-			*currentMode=pixelModePair;
-			kaelTree_push(krleFormat,&(uint8_t){pixelModePair});
+		case KRLE_PIXEL_PAIR:
+			*currentMode=KRLE_PIXEL_PAIR;
+			kaelTree_push(krleFormat,&(uint8_t){KRLE_PIXEL_PAIR});
 			break;
 	}
 }
 
-void krle_printJumpRun(KaelTree *krleFormat, uint8_t currentMode, uint32_t *jumpLength, uint32_t maxJump){
+void krle_packJumpRun(KaelTree *krleFormat, uint8_t currentMode, uint32_t *jumpLength, uint32_t maxJump){
 
 	#if KRLE_EXTRA_DEBUGGING==1
 		printf("Jump runs ");
 	#endif
 	while(*jumpLength){
 		uint8_t runLength = kaelMath_min(*jumpLength, maxJump);
-		if(currentMode==pixelModeRun){
-			kaelTree_push(krleFormat,&(uint8_t){pixelRunJump});
+		if(currentMode==KRLE_PIXEL_RUN){
+			kaelTree_push(krleFormat,&(uint8_t){KRLE_RUN_JUMP});
 		}else
-		if(currentMode==pixelModePair){
-			kaelTree_push(krleFormat,&(uint8_t){pixelPairJump});
+		if(currentMode==KRLE_PIXEL_PAIR){
+			kaelTree_push(krleFormat,&(uint8_t){KRLE_PAIR_JUMP});
 		}
 		kaelTree_push(krleFormat,&(uint8_t){runLength});
 		
@@ -221,7 +221,7 @@ void krle_printJumpRun(KaelTree *krleFormat, uint8_t currentMode, uint32_t *jump
 
 
 void krle_packPixelRun(KaelTree *krleFormat, uint8_t *currentMode, uint8_t paletteIndex, uint32_t *pixelLength, uint32_t maxPixelLength){
-	krle_switchPixelMode(krleFormat, currentMode, pixelModeRun);
+	krle_switchPixelMode(krleFormat, currentMode, KRLE_PIXEL_RUN);
 	//Chain of same pixels ended
 	#if KRLE_EXTRA_DEBUGGING==1
 		printf("palette %u runs ", paletteIndex);
@@ -250,7 +250,7 @@ void krle_unpackPixelRun(uint8_t byte, uint8_t *paletteIndex, uint8_t *length ){
 
 
 void krle_packPixelPair(KaelTree *krleFormat, uint8_t *currentMode, uint8_t first, uint8_t second ){
-	krle_switchPixelMode(krleFormat, currentMode, pixelModePair);
+	krle_switchPixelMode(krleFormat, currentMode, KRLE_PIXEL_PAIR);
 	#if KRLE_EXTRA_DEBUGGING==1
 		printf("Pair %u -> %u\n", first, second);
 	#endif
@@ -291,7 +291,7 @@ uint8_t krle_incrementor(Krle_TGAHeader header, uint32_t *i, uint32_t *x, uint32
  * @note Formatting
  * Call marker once 			[pixelRuns : 8bit] [color : 4bit, length 4bit] -||- ...
  * Call marker once 			[pixelPair : 8bit] [color : 4bit, color  4bit] -||- ...
- * Call marker every jump 	[pixelRunJump : 8bit] [length : 8bit] ...
+ * Call marker every jump 	[KRLE_RUN_JUMP : 8bit] [length : 8bit] ...
  */
 void krle_pixelsToKRLE(KaelTree *krleFormat, Krle_LAB labPalette[16], Krle_TGAHeader header, uint8_t *pixels, uint8_t stretchFactor){
 	if(NULL_CHECK(krleFormat) || NULL_CHECK(labPalette) || NULL_CHECK(pixels) ){
@@ -316,7 +316,7 @@ void krle_pixelsToKRLE(KaelTree *krleFormat, Krle_LAB labPalette[16], Krle_TGAHe
 	uint32_t pixelCount = 0; //for debugging
 	uint32_t pixelLength=0; //How long pixel run
 	uint8_t prevPalette = 0xFF;
-	uint8_t currentPixelMode = pixelModeRun; //is current mode runs or pairs?
+	uint8_t currentPixelMode = KRLE_PIXEL_RUN; //is current mode runs or pairs?
 
 	uint32_t i=0,x=0,y=0;
 
@@ -333,7 +333,7 @@ void krle_pixelsToKRLE(KaelTree *krleFormat, Krle_LAB labPalette[16], Krle_TGAHe
 				}
 				if(alpha>alphaClip && jumpLength){
 					pixelCount+=jumpLength;
-					krle_printJumpRun(krleFormat, currentPixelMode, &jumpLength, maxJump);
+					krle_packJumpRun(krleFormat, currentPixelMode, &jumpLength, maxJump);
 					break;
 				}
 			}while( krle_incrementor(header, &i, &x, &y, stretchFactor) );
@@ -373,7 +373,7 @@ void krle_pixelsToKRLE(KaelTree *krleFormat, Krle_LAB labPalette[16], Krle_TGAHe
 
 			if(runLength){
 				if((runLength>1 || modeCooldown) && thisPalette != 0xFF){
-					if(currentPixelMode!=pixelModeRun){
+					if(currentPixelMode!=KRLE_PIXEL_RUN){
 						//recently switched. Prevent switching back to pairs immediately
 						modeCooldown = cooldownLength;
 					}
@@ -451,7 +451,7 @@ uint8_t krle_jumpToPixels(uint8_t *pixelsTGA, Krle_TGAHeader header, uint8_t jum
 
 //--- run and pair nibbles ---
 
-uint8_t krle_runNibbleToPixels(uint8_t *pixelsTGA, Krle_TGAHeader header, uint8_t byte, uint32_t *px){
+uint8_t krle_runToPixels(uint8_t *pixelsTGA, Krle_TGAHeader header, uint8_t byte, uint32_t *px){
 	uint8_t paletteIndex;
 	uint8_t length;
 	
@@ -474,7 +474,7 @@ uint8_t krle_runNibbleToPixels(uint8_t *pixelsTGA, Krle_TGAHeader header, uint8_
 	return KRLE_SUCCESS;
 }
 
-uint8_t krle_pairNibbleToPixels(uint8_t *pixelsTGA, Krle_TGAHeader header, uint8_t byte, uint32_t *px){
+uint8_t krle_pairToPixels(uint8_t *pixelsTGA, Krle_TGAHeader header, uint8_t byte, uint32_t *px){
 		uint8_t firstPalette;
 		uint8_t secondPalette;
 		
@@ -512,43 +512,43 @@ uint32_t krle_toPixels(const uint8_t *krleString, uint8_t *pixelsTGA, const Krle
 	uint32_t totalPixels = header.width*header.height;
 	uint32_t px=0; //pixel index
 
-	uint8_t currentMode = pixelModeRun;
+	uint8_t currentMode = KRLE_PIXEL_RUN;
 
 	const uint8_t *readHead = krleString;
 
 	uint8_t code=KRLE_SUCCESS;
 
 	while(px<totalPixels && readHead[0]!=0){
-		if(currentMode==pixelModeRun){
+		if(currentMode==KRLE_PIXEL_RUN){
 			switch(readHead[0]){
-				case pixelModePair:
-					currentMode = pixelModePair;
+				case KRLE_PIXEL_PAIR:
+					currentMode = KRLE_PIXEL_PAIR;
 					break;
 	
-				case pixelRunJump:
+				case KRLE_RUN_JUMP:
 					readHead++; //Skip marker
 					code = krle_jumpToPixels(pixelsTGA, header, readHead[0], &px);
 					break;
 	
 				default:
-					code = krle_runNibbleToPixels(pixelsTGA, header, readHead[0], &px);
+					code = krle_runToPixels(pixelsTGA, header, readHead[0], &px);
 					break;
 			}
 		}else 
-		if(currentMode==pixelModePair){
+		if(currentMode==KRLE_PIXEL_PAIR){
 			//Marker values switch in modes
 			switch(readHead[0]){
-				case pixelModeRun:
-					currentMode = pixelModeRun;
+				case KRLE_PIXEL_RUN:
+					currentMode = KRLE_PIXEL_RUN;
 					break;
 	
-					case pixelPairJump:
+					case KRLE_PAIR_JUMP:
 						readHead++; //Skip marker
 						code = krle_jumpToPixels(pixelsTGA, header, readHead[0], &px);
 						break;
 	
 				default:
-					code = krle_pairNibbleToPixels(pixelsTGA, header, readHead[0], &px);
+					code = krle_pairToPixels(pixelsTGA, header, readHead[0], &px);
 					break;
 			}
 		}

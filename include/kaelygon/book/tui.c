@@ -4,40 +4,9 @@
  * @brief Implementation, Text User Interface tools
  */
 
-#include "kaelygon/book/tui.h"
 #include <string.h>
 
-
-/**
- * @brief List of escape sequences enumerated by KaelTui_escSeqIndex
- */
-const char *kaelTui_escSeq[] = {
-	"\x1b[2J",	//escSeq_clear
-	"\x1b[2K",	//escSeq_clearRow
-	"\x1b[0m",	//escSeq_styleReset
-	"\x1b[r"		//escSeq_scrollReset
-};
-
-/**
- * @brief List of kaelTui_escSeq lengths enumerated by KaelTui_escSeqIndex
- */
-const uint8_t kaelTui_escSeqLen[] = {
-	4,	//escSeq_clear
-	4,	//escSeq_clearRow
-	4,	//escSeq_styleReset
-	3	//escSeq_scrollReset
-};
-
-/**
- * @brief List of ansi style modifiers enumerated by KaelTui_ansiModIndex
- */
-const uint8_t kaelTui_ansiMod[4] = { 
-	3, //ansiFGLow
-	9, //ansiFGHigh
-	4, //ansiBGLow
-	10, //ansiBGHigh
-};
-
+#include "kaelygon/book/tui.h"
 
 
 
@@ -62,28 +31,6 @@ uint8_t kaelTui_u16ToString(uint16_t value, char *buf) {
 	}
 	return i;
 }
-
-
-/*
-* Ansi reset is normally kaelTui_encodeStyle(0,0,0) but this is reseved for NULL because 
-* If rowBuffer string endend in a [markerStyle], it would read 1 byte out of bounds
-* This also means that both escSeq_styleReset and kaelTui_encodeStyle(3,7,7)=0xFF are reset
-*/
-
-/**
- * @brief Encode ansi color into a single byte
- *
- */ 
-KaelTui_ansiStyle kaelTui_encodeStyle(const uint8_t modIndex, const uint8_t color, const uint8_t style){
-	KaelTui_ansiStyle code = {
-		.mod	 = modIndex	& 0b11,
-		.color = color		& 0b111,
-		.style = style		& 0b111
-	};
-	return code;
-}
-
-
 
 //------ Buffer printing ------
 
@@ -175,7 +122,7 @@ void kaelTui_pushChar(KaelTui_rowBuffer *rowBuf, const char *string, const uint8
  * @brief Wrapper function to push escSeq array by index
  */
 void kaelTui_pushEscSeq(KaelTui_rowBuffer *rowBuf, uint16_t index){
-	kaelTui_pushChar(rowBuf, kaelTui_escSeq[index], kaelTui_escSeqLen[index]);
+	kaelTui_pushChar(rowBuf, krle_constChar[index], krle_constCharLen[index]);
 }
 
 /**
@@ -224,18 +171,19 @@ void kaelTui_pushScroll(KaelTui_rowBuffer *rowBuf, uint8_t scrollCount, uint8_t 
 }
 
 /**
- * @brief Push decoded kaelTui_ansiCode.byte to string  
+ * @brief Push decoded Text mode byte to string  
  */
 void kaelTui_pushMarkerStyle(KaelTui_rowBuffer *rowBuf, uint8_t rawByte){
 	KAEL_ASSERT(rowBuf!=NULL);
 
-	if ( rawByte == ansiReset ) {
-		kaelTui_pushChar(rowBuf, kaelTui_escSeq[escSeq_styleReset], kaelTui_escSeqLen[escSeq_styleReset]);
+	Krle_ansiStyle ansiStyle = krle_decodeStyle(rawByte);
+
+	if ( ansiStyle.byte == ANSI_RESET ) {
+		kaelTui_pushChar(rowBuf, krle_constChar[KRLE_STYLE_RESET], krle_constCharLen[KRLE_STYLE_RESET]);
 		return;
 	}
 
-	KaelTui_ansiStyle ansiStyle = {.byte = rawByte};
-	uint16_t arg1 = ansiStyle.style;
-	uint16_t arg2 = kaelTui_ansiMod[ansiStyle.mod]*10 + ansiStyle.color;
-	kaelTui_twoArgEscSeq(rowBuf, arg1, arg2, 'm');
+	uint16_t arg1 = krle_attributeTable[ansiStyle.style &0b111 ];
+	uint16_t arg2 = krle_colorTable[		ansiStyle.byte &0b11111 ];
+ 	kaelTui_twoArgEscSeq(rowBuf, arg1, arg2, 'm');
 }

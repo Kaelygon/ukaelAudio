@@ -11,6 +11,8 @@
 #include "kaelygon/math/math.h"
 #include "kaelygon/treeMem/tree.h"
 
+#include "krle/krleBase.h"
+
 /**
  * @brief fancy string print buffer
  */
@@ -23,114 +25,9 @@ typedef struct{
 }KaelTui_rowBuffer;
 
 
-
-
-
-//------ Ansi escape sequence ------
-
-/**
- * @brief Enumerates *kaelTui_escSeq[] and kaelTui_escSeqLen[]
- */
-typedef enum{
-	escSeq_clear,
-	escSeq_clearRow,
-	escSeq_styleReset,
-	escSeq_scrollReset
-}KaelTui_escSeqIndex;
-
-/**
- * @brief Enumerates kaelTui_ansiMod[4]
- */
-typedef enum{
-	ansiFGLow,
-	ansiFGHigh,
-	ansiBGLow,
-	ansiBGHigh,
-}KaelTui_ansiMod;
-
-typedef enum {
-	ansiMaxLength 	= 8, //Maximum bytes decoded ansi esc seq can take
-	ansiReset 		= 0xFF, 
-}KaelTui_ansiConst;
-
-/**
- * @brief Font style
- */
-typedef enum {
-	ansiNone			= 0,
-	ansiBold 		= 1,  
-	ansiUnderline 	= 4, 
-	ansiBlink 		= 5, 
-	ansiReverse 	= 7, 
-	//ansiHidden	= 8, overflow. Use ansiWhite space or space instead
-}KaelTui_ansiGlyph;
-
-/**
- * @brief font color
- * color format [bright : 1 bit] [color  : 3 bit]
- */
-typedef enum {
-	ansiBlack 	= 0b0000,
-	ansiRed		, 
-	ansiGreen	, 
-	ansiYellow	, 
-	ansiBlue		, 
-	ansiMagenta	, 
-	ansiCyan		, 
-	ansiWhite	, 
-
-	//Used by TGA->KRLE color4bit conversion
-	ansiBrightBlack	= 0b1000,
-	ansiBrightRed		,
-	ansiBrightGreen	,
-	ansiBrightYellow	,
-	ansiBrightBlue		,
-	ansiBrightMagenta	,
-	ansiBrightCyan		,
-	ansiBrightWhite	,
-}KaelTui_ansiColor;
-
-/**
- * @brief Ansi color code escape sequence encoded in a single byte
- */
-typedef union {
-	struct {
-		uint8_t mod    : 2;
-		uint8_t color  : 3;
-		uint8_t style  : 3;
-	};
-	uint8_t byte;
-}KaelTui_ansiStyle;
-
-/**
- * 
- * Formatting in string
- * | [marker]		| [data byte]     |
- * | -----------  | --------------- |
- * | markerStyle	| [ansiCode.byte] | //Print ansi font style esc seq
- * | markerSpace	| [space count]   | //Print white space
- * | markerJump	| [jump count]   	| //Space to character without overdraw
- * 
- */
-/**
- * @brief Special instructions stored as unicode PUA
- * 0xE0 to 0xF8
-*/
-typedef enum{
-	markerStyle = 0xE0,
-	markerSpace,
-	markerJump,
-	markerPlaceholder = 0xF8
-}KaelTui_Marker;
-
-
-
-
-
 //------ Ansi style escape sequence ------
 
-KaelTui_ansiStyle kaelTui_encodeStyle(const uint8_t mod, const uint8_t color, const uint8_t style);
-uint8_t kaelTui_styleToString(char *escSeq, const KaelTui_ansiStyle ansiStyle, uint16_t offset);
+uint8_t kaelTui_styleToString(char *escSeq, const Krle_ansiStyle ansiStyle, uint16_t offset);
 
 //------ Push to Row Bufffer ------
 

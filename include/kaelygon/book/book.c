@@ -218,12 +218,12 @@ KaelBook_shape *kaelBook_getShapeAt(KaelBook *book, uint16_t viewCol, uint16_t v
 /**
  * @brief encode drawMode_pixel into byte 
  */
-KaelBook_pixel kaelBook_encodePixel(uint8_t bright, uint8_t color, uint8_t length){
-	KaelBook_pixel pixel;
-	pixel.bright = bright&0b1;
-	pixel.color = color&0b111;
-	pixel.length = length&0b1111;
-	pixel.byte = pixel.byte==0 ? 0b00010000 : pixel.byte; //Can't be null byte
+KaelBook_pixel kaelBook_encodePixel(uint8_t color, uint8_t length){
+	length = length==0 ? 1 : length; //Can't be null byte
+
+	KaelBook_pixel pixel = {0};
+	pixel.byte = kaelMath_u8pack(color, length);
+	
 	return pixel;
 }
 
@@ -232,16 +232,20 @@ KaelBook_pixel kaelBook_encodePixel(uint8_t bright, uint8_t color, uint8_t lengt
  */
 KaelBook_pixel kaelBook_decodePixel(uint8_t byte){
 	KaelBook_pixel pixel;
-	pixel.byte = byte;
+	uint8_t color,length;
+	kaelMath_u8unpack(byte, &color, &length);
+	pixel.color		= color&0b111;
+	pixel.bright	= color>>3;
+	pixel.length = length==0 ? 1 : length;
 	return pixel;
 }
 
 /**
- * @brief Convert drawMode_pixel into KaelTui_ansiStyle
+ * @brief Convert drawMode_pixel into Krle_ansiStyle
  */
-KaelTui_ansiStyle kaelBook_pixelToStyle(KaelBook_pixel pixel){
-	uint8_t ansiMod = pixel.bright ? ansiBGHigh : ansiBGLow;
-	KaelTui_ansiStyle ansiCode = kaelTui_encodeStyle(ansiMod, pixel.color, 0U);
+Krle_ansiStyle kaelBook_pixelToStyle(KaelBook_pixel pixel){
+	//Pixels have no style, so the last arg can be anything except 0 (reset)
+	Krle_ansiStyle ansiCode = krle_encodeStyle( pixel.bright, ANSI_BG, pixel.color, 2); 
 	return ansiCode;
 }
 
@@ -317,21 +321,21 @@ void kaelBook_solveJumpMarker(KaelBook *book, KaelBook_shape *shapePtr, uint16_t
 void kaelBook_parseChar(KaelBook *book, KaelTui_rowBuffer *rowBuf, KaelBook_shape *shapePtr, uint16_t *col, uint16_t *row ){
 	//Parse character
 	switch( (uint8_t)rowBuf->readPtr[0] ){
-		case markerStyle:
+		case KRLE_TEXT_STYLE:
 			//Ansi style and color encoding
 			rowBuf->readPtr++; //skip the marker
 			kaelTui_pushMarkerStyle(rowBuf, rowBuf->readPtr[0]);
 			rowBuf->readPtr++;
 			break;
 
-		case markerSpace:
+		case KRLE_TEXT_SPACE:
 			//Jump by printing white space, necessary for colored BG
 			rowBuf->readPtr++; 
 			kaelBook_solveSpaceMarker(book, rowBuf, shapePtr, col, row, rowBuf->readPtr[0]);
 			rowBuf->readPtr++;
 			break;
 
-		case markerJump:
+		case KRLE_TEXT_JUMP:
 			//Jump without overdraw
 			rowBuf->readPtr++;
 			kaelBook_solveJumpMarker(book, shapePtr, col, row, rowBuf->readPtr[0]);
@@ -378,7 +382,7 @@ void kaelBook_drawPixelString(KaelBook *book, KaelTui_rowBuffer *rowBuf, KaelBoo
 			case 0:
 				return;
 				
-			case pixelRunJump:
+			case KRLE_RUN_JUMP:
 				rowBuf->readPtr++;
 				kaelBook_solveJumpMarker(book, shapePtr, &col, &row, rowBuf->readPtr[0]);
 				rowBuf->readPtr++;
@@ -387,7 +391,7 @@ void kaelBook_drawPixelString(KaelBook *book, KaelTui_rowBuffer *rowBuf, KaelBoo
 			default:
 				//pixel
 				KaelBook_pixel pixel = kaelBook_decodePixel((uint8_t)rowBuf->readPtr[0]);
-				KaelTui_ansiStyle ansiStyle = kaelBook_pixelToStyle(pixel);
+				Krle_ansiStyle ansiStyle = kaelBook_pixelToStyle(pixel);
 				kaelTui_pushMarkerStyle(rowBuf, ansiStyle.byte);
 		
 				kaelBook_solveSpaceMarker(book, rowBuf, shapePtr, &col, &row, pixel.length);
@@ -436,8 +440,8 @@ void kaelBook_drawShapeString(KaelBook *book, KaelTui_rowBuffer *rowBuf, KaelBoo
 */	
 void kaelBook_resetStyle(KaelBook *book){
 	KaelTui_rowBuffer *rowBuf = &book->rowBuf;
-	kaelTui_pushEscSeq		(rowBuf, escSeq_scrollReset);
-	kaelTui_pushEscSeq		(rowBuf, escSeq_styleReset);
+	kaelTui_pushEscSeq		(rowBuf, KRLE_SCROLL_RESET);
+	kaelTui_pushEscSeq		(rowBuf, KRLE_STYLE_RESET);
 	kaelTui_pushMov			(rowBuf, 0, book->size[1]+1);
 	kaelTui_printRowBuf		(rowBuf);
 	fflush(stdout);
@@ -463,7 +467,7 @@ void kaelBook_drawShape(KaelBook *book, KaelBook_shape *shapePtr){
 		kaelBook_drawShapeString(book, rowBuf, shapePtr);
 	}
 
-	kaelTui_pushEscSeq(rowBuf, escSeq_styleReset);
+	kaelTui_pushEscSeq(rowBuf, KRLE_STYLE_RESET);
 }
 
 /**
@@ -474,7 +478,7 @@ void kaelBook_drawQueue(KaelBook *book){
 	KAEL_ASSERT(book!=NULL);
 
 	//reset screen
-	kaelTui_pushEscSeq(&book->rowBuf, escSeq_styleReset);
+	kaelTui_pushEscSeq(&book->rowBuf, KRLE_STYLE_RESET);
 	
 	//Iterate drawQueue
 	while(!kaelTree_empty(&book->drawQueue)){
@@ -581,7 +585,7 @@ void kaelBook_scrollCols(KaelBook *book, uint16_t scrollCount, uint16_t scrollLe
 	}
 
 	//Clear terminal
-	kaelTui_pushEscSeq(&book->rowBuf, escSeq_clear);
+	kaelTui_pushEscSeq(&book->rowBuf, KRLE_CLEAR);
 
 	if(scrollLeft){
 		book->viewPos[0]+= scrollCount;

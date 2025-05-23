@@ -4,6 +4,8 @@
  * @brief Test program for book.c
  * 
  * TODO: Pixel mode is currently broken as I am drafting KRLE standard
+ * TODO: Create similar functions like KREL->Pixels in krleTGA.c and declare them in krleBase.c 
+ * TODO: All colors aren't displayed correctly, The old pixel draw method has collisions with new KRLE standard
  */
 
 #include <stdlib.h>
@@ -22,10 +24,10 @@ KaelBook_shape kaelBook_genCheckerboard(uint16_t width, uint16_t height, uint16_
 	shape.pos[0]   = col;
 	shape.pos[1]   = row;
 
-	KaelTui_ansiStyle blackText = kaelTui_encodeStyle( ansiFGLow, ansiBlack, ansiBold );
-	KaelTui_ansiStyle highCol = kaelTui_encodeStyle( ansiBGHigh, ansiWhite, ansiBold );
-	KaelTui_ansiStyle lowCol  = kaelTui_encodeStyle( ansiBGHigh, ansiBlue , ansiBold );
-	KaelTui_ansiStyle curCol = highCol;
+	Krle_ansiStyle blackText = krle_encodeStyle( ANSI_NORMAL, ANSI_FG, ANSI_BLACK, ANSI_BOLD );
+	Krle_ansiStyle highCol = krle_encodeStyle  ( ANSI_BRIGHT, ANSI_BG, ANSI_WHITE, ANSI_BOLD );
+	Krle_ansiStyle lowCol  = krle_encodeStyle  ( ANSI_BRIGHT, ANSI_BG, ANSI_BLUE , ANSI_BOLD );
+	Krle_ansiStyle curCol = highCol;
 
 	uint8_t lastState = 3;
 	uint16_t index=0;
@@ -39,7 +41,7 @@ KaelBook_shape kaelBook_genCheckerboard(uint16_t width, uint16_t height, uint16_
 	size_t byteEstimate = width*height/2 + cellsTotal*ratio[1] + 2*cellsTotal*ratio[1] + 3; 
 	kaelTree_reserve(&tmpString, byteEstimate); 
 
-	kaelTree_push(&tmpString,&(uint8_t){markerStyle});
+	kaelTree_push(&tmpString,&(uint8_t){KRLE_TEXT_STYLE});
 	kaelTree_push(&tmpString,&blackText.byte);
 
 	for(uint16_t j=0; j<height; j++){
@@ -50,8 +52,9 @@ KaelBook_shape kaelBook_genCheckerboard(uint16_t width, uint16_t height, uint16_
 			if(lastState!=state){
 				//Swap style
 				curCol.byte = state ? highCol.byte : lowCol.byte;
-				kaelTree_push(&tmpString,&(uint8_t){markerStyle});
+				kaelTree_push(&tmpString,&(uint8_t){KRLE_TEXT_STYLE});
 				kaelTree_push(&tmpString,&curCol.byte);
+				KAEL_ASSERT(curCol.byte!='\0', "Illegal value");
 			}
 
 			if(state){
@@ -60,9 +63,10 @@ KaelBook_shape kaelBook_genCheckerboard(uint16_t width, uint16_t height, uint16_
 			}else{
 				//Colored jumps at beginning of every second square 
 				uint8_t spaceCount = kaelMath_min(ratio[0], width-i);
+				spaceCount+= spaceCount==0;
 				if(spaceCount>2){
 					//Printing marker is more efficient
-					kaelTree_push(&tmpString,&(uint8_t){markerSpace});
+					kaelTree_push(&tmpString,&(uint8_t){KRLE_TEXT_SPACE});
 					kaelTree_push(&tmpString,&(uint8_t){spaceCount});
 				}else{
 					//Pritning space is more efficient
@@ -109,14 +113,14 @@ KaelBook_shape kaelBook_genPixel(uint16_t width, uint16_t height, uint16_t col, 
 	for(uint16_t j=0; j<height; j++){
 		for(uint16_t i=0; i<width; i++){
 			uint8_t mixByte = (i + j*height)*13+7;
-			uint8_t bright = (mixByte >> 7) & 0b1;
-			uint8_t color  =  mixByte       & 0b111;
-			uint8_t length = pixelLength ? pixelLength : (mixByte >> 4) & 0b1111;
 
-			KaelBook_pixel pixel = kaelBook_encodePixel(bright, color, length);
+			KaelBook_pixel pixel = {.byte=mixByte};
+			pixel.length = pixel.length == 0 ? 1 : pixel.length;
+			pixel.length = pixelLength ? pixelLength : pixel.length;
 
-			pixelCount+=length;
+			pixelCount+=pixel.length;
 			kaelTree_push(&tmpString,&(uint8_t){pixel.byte});
+			KAEL_ASSERT(pixel.byte!='\0', "Illegal value");
 			
 			if(pixelCount>=width*height){break;}
 		}
@@ -163,16 +167,25 @@ void unit_kaelBook_scramblePixels(KaelBook *book){
 		uint8_t *readHead = shapePtr->string;
 		while(readHead[0]){
 			switch(readHead[0]){
-				case markerStyle:
-				case markerJump:
-				case markerSpace:
+				case KRLE_TEXT_STYLE:
+					readHead++;
+					break;
+				case KRLE_TEXT_JUMP:
+					readHead++;
+					break;
+				case KRLE_TEXT_SPACE:
 					readHead++;
 					break;
 				case 0:
 					break;
 				default:
+					// 
 					KaelBook_pixel pixel = kaelBook_decodePixel((uint8_t)readHead[0]);
-					pixel = kaelBook_encodePixel(pixel.bright, ++pixel.color, pixel.length);
+					pixel.color++;
+					pixel.color = pixel.color&0b111;
+					if(pixel.color==0){
+						pixel.bright = !pixel.bright;
+					}
 					readHead[0] = pixel.byte;
 					readHead++;
 					break;

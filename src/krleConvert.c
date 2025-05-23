@@ -20,7 +20,8 @@
 #include "kaelygon/treeMem/tree.h"
 #include "kaelygon/book/book.h"
 
-#include "krle/krle.h"
+#include "krle/krleTGA.h"
+
 
 
 /**
@@ -34,7 +35,7 @@ void krle_encodeKRLE(const char *filePath, uint8_t isPalette, uint8_t stretchFac
 
 	//Print RGB triples
 	if(isPalette){
-		for(int i=0; i<(int)pixelsTotal; i++){
+		for(uint32_t i=0; i<pixelsTotal; i++){
 			uint8_t b = pixelsTGA[i*4+0];
 			uint8_t g = pixelsTGA[i*4+1];
 			uint8_t r = pixelsTGA[i*4+2];
