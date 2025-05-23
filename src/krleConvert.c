@@ -59,14 +59,14 @@ void krle_encodeKRLE(const char *filePath, uint8_t isPalette, uint8_t stretchFac
 	//Reuse pixel array and export TGA for debugging
 
 	const uint8_t *krleString = kaelTree_get(&krleFormat, 0);
-	uint32_t pixelCount = krle_toPixels(krleString, pixelsTGA, header);
+	krle_toPixels(krleString, pixelsTGA, header);
 	
 	//Write to file
 	const char *palettizedFile = "./assets/krlePalettized.tga";
 	FILE *outFile = fopen(palettizedFile, "wb");
 	if(outFile){
 		fwrite(&header, sizeof(Krle_TGAHeader), 1, outFile);
-		fwrite(pixelsTGA, 4*pixelCount*sizeof(uint8_t), 1, outFile); //4 bytes per pixel
+		fwrite(pixelsTGA, 4*pixelsTotal*sizeof(uint8_t), 1, outFile); //4 bytes per pixel
 		fclose(outFile);
 	}else{
 		perror("Failed to open outFile");
@@ -93,7 +93,7 @@ void krle_encodeKRLE(const char *filePath, uint8_t isPalette, uint8_t stretchFac
 int main() {
 	uint8_t isPalette = 0;
 	const char *filePath[] = {
-		"./assets/tga/KaelTUIMerged.tga",
+		"./assets/tga/kaelTui.tga",
 		"./assets/tga/orchisPalette.tga",
 		"./assets/tga/noise.tga",
 		"./assets/tga/worst.tga",
