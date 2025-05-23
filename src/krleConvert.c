@@ -23,83 +23,139 @@
 #include "krle/krleTGA.h"
 
 
-
 /**
  * @brief TGA to krle encode test function
  */
-void krle_encodeKRLE(const char *filePath, uint8_t isPalette, uint8_t stretchFactor){
-	uint8_t *pixelsTGA = NULL;
+void unit_krle_encodeKRLE(const char *folderPath, const char *baseName, uint8_t stretchFactor){
+	if(NULL_CHECK(folderPath) || NULL_CHECK(baseName)){
+		return;
+	}
+	stretchFactor = stretchFactor==0 ? 1 : stretchFactor;
+	uint8_t *TGAPixels = NULL;
 
-	Krle_TGAHeader header = krle_readTGAFile(filePath, &pixelsTGA);
-	uint32_t pixelsTotal = header.width * header.height;
+	char TGAFile[100]={0};
+	char krleFile[100]={0};
+	snprintf( TGAFile, sizeof(TGAFile), "%stga/%s.tga", folderPath, baseName );
+	snprintf( krleFile, sizeof(krleFile), "%skrle/%s.krle", folderPath, baseName );
 
-	//Print RGB triples
-	if(isPalette){
-		for(uint32_t i=0; i<pixelsTotal; i++){
-			uint8_t b = pixelsTGA[i*4+0];
-			uint8_t g = pixelsTGA[i*4+1];
-			uint8_t r = pixelsTGA[i*4+2];
-			printf("{%u, %u, %u},\n",r,g,b);
-		}
-		if(pixelsTotal>256){
-			printf("That's a pretty big palette, huh?\n");
-		}
+	Krle_TGAHeader TGAHeader = krle_readTGAFile(TGAFile, &TGAPixels);
+	uint32_t pixelsTotal = TGAHeader.width * TGAHeader.height;
+
+	if(pixelsTotal==0){
 		return;
 	}
 
+	//Convert orchis palette to LAB
+	Krle_LAB orchisPaletteLAB[16] = {0};
+	krle_paletteRGBToLAB(orchisPaletteLAB, krle_orchisPalette);
+	
 
 	//Convert TGA to KRLE string
 	KaelTree krleFormat = {0};
-	Krle_LAB labPalette[16] = {0};
-	krle_initLabPalette(labPalette, krle_orchisPalette);
+	krle_pixelsToKRLE(&krleFormat, orchisPaletteLAB, TGAPixels, TGAHeader.width, TGAHeader.height, stretchFactor);
 
-	krle_pixelsToKRLE(&krleFormat, labPalette, header, pixelsTGA, stretchFactor);
+	Krle_header KRLEHeader = krle_createKRLEHeader( TGAHeader.width, TGAHeader.height, kaelTree_length(&krleFormat), stretchFactor);
 
+	//Reuse pixel array and export TGA for manual validation (use your eye balls at the file)
+	const uint8_t *KRLEString = kaelTree_get(&krleFormat, 0);
+	krle_KRLEToPixels(KRLEString, TGAPixels, KRLEHeader);
+	krle_writeTGAFile("./assets/unit_TGAtoKrle.tga", TGAHeader, TGAPixels);
 
+	free(TGAPixels);
 
-	//Reuse pixel array and export TGA for debugging
+	krle_writeKRLEFile(KRLEString, KRLEHeader, krleFile);
 
-	const uint8_t *krleString = kaelTree_get(&krleFormat, 0);
-	krle_toPixels(krleString, pixelsTGA, header);
-	
-	//Write to file
-	const char *palettizedFile = "./assets/krlePalettized.tga";
-	FILE *outFile = fopen(palettizedFile, "wb");
-	if(outFile){
-		fwrite(&header, sizeof(Krle_TGAHeader), 1, outFile);
-		fwrite(pixelsTGA, 4*pixelsTotal*sizeof(uint8_t), 1, outFile); //4 bytes per pixel
-		fclose(outFile);
-	}else{
-		perror("Failed to open outFile");
-	}
-
-	free(pixelsTGA);
-
+	kaelTree_free(&krleFormat);
 
 
 	//info printing
-	uint16_t compressedSize = kaelTree_length(&krleFormat);
-	uint32_t stretchedPixels = header.width*header.height/stretchFactor;
+	uint16_t compressedSize = KRLEHeader.length;
+	uint32_t stretchedPixels = TGAHeader.width*TGAHeader.height/stretchFactor;
 	float bytesPerPixel =  8.0*(float)compressedSize/(stretchedPixels);
 	float pixelsPerByte = (float)stretchedPixels/compressedSize;
 	printf("%u pixels converted to %u bytes\n", stretchedPixels, compressedSize);
 	printf("%.2f pixels per byte\n", pixelsPerByte);
 	printf("%.2f bits per pixel\n",bytesPerPixel);
-
-	//TODO: krleFormat into file + header 
-
-	kaelTree_free(&krleFormat);
 }
 
-int main() {
-	uint8_t isPalette = 0;
-	const char *filePath[] = {
-		"./assets/tga/kaelTui.tga",
-		"./assets/tga/orchisPalette.tga",
-		"./assets/tga/noise.tga",
-		"./assets/tga/worst.tga",
+
+
+
+
+
+/**
+ * @brief Read and copy KRLE file into string
+ */
+Krle_header krle_readKRLEFile(const char *filePath, uint8_t **KRLEString){
+	FILE *file = fopen(filePath, "rb");
+	if(!file) {
+		printf("Failed to open %s",filePath);
+		return (Krle_header){0};
+	}
+	
+	Krle_header header;
+	fread(&header, sizeof(Krle_header), 1, file);
+	
+	if(header.length == 0){
+		fprintf(stderr, "Invalid byte string length\n");
+		fclose(file);
+		return (Krle_header){0};
+	}
+	
+	*KRLEString = calloc(header.length*sizeof(uint8_t), 1);
+	if(NULL_CHECK(*KRLEString)){
+		return (Krle_header){0};
+	}
+ 	
+	fread(*KRLEString, sizeof(uint8_t), header.length, file);
+	fclose(file);
+
+	return header;
+}
+
+
+/**
+ * @brief KRLE to TGA conversion test function
+ */
+void unit_krle_decodeKRLE(const char *folderPath, const char *baseName){
+
+	//char TGAFile[100]={0};
+	char krleFile[100]={0};
+	//snprintf( TGAFile, sizeof(TGAFile), "%stga/%s.tga", folderPath, baseName );
+	snprintf( krleFile, sizeof(krleFile), "%skrle/%s.krle", folderPath, baseName );
+
+	uint8_t *KRLEString = NULL;
+	Krle_header KRLEHeader = krle_readKRLEFile(krleFile, &KRLEString);
+	
+	uint8_t *TGAPixels = calloc( 4*KRLEHeader.height*KRLEHeader.width, sizeof(uint8_t)); //32bits per pixel
+	if(TGAPixels==NULL){
+		printf("TGAPixels failed to alloc\n");
+		return;
+	}
+
+	krle_KRLEToPixels(KRLEString, TGAPixels, KRLEHeader);
+	Krle_TGAHeader TGAHeader = krle_createTGAHeader(KRLEHeader.height, KRLEHeader.width);
+	krle_writeTGAFile("./assets/unit_KRLEToTGA.tga", TGAHeader, TGAPixels);
+
+	free(TGAPixels);
+
+	free(KRLEString);
+}
+
+
+int main(){
+
+	const char *floderPath="./assets/";
+	const char *basenameList[] = {
+		"kaelTui",
+		"orchisPalette",
+		"noise",
+		"worst",
 	}; 
 
-	krle_encodeKRLE(filePath[0], isPalette, 1);
+	unit_krle_encodeKRLE(floderPath, basenameList[0], 0);
+
+	unit_krle_decodeKRLE(floderPath, basenameList[0]);
+
 	return 0;
 }

@@ -14,11 +14,15 @@
 
 
 //------ Global variables ------
+//TODO: update style doc. all caps is bit of an eye sore so maybe we'll rethink on that stylization
 
 //--- Constant values ---
 
 extern const char *krle_constChar[];
 extern const uint8_t krle_constCharLen[];
+
+extern const uint8_t krle_defaultColorTable[32];
+extern const uint8_t krle_defaultAttributeTable[8];
 
 //--- Mutable global values ---
 
@@ -80,10 +84,13 @@ typedef struct{
 	uint8_t palette[32]; 
 
 	//Which SGR attributes .style index corresponds
-	uint16_t attributes[8];		
+	uint16_t attribute[8];		
+
+	//Height stretch factor. Terminal characters are roughly 2 high 1 wide, ratio=2  
+	uint8_t ratio; 
 
 	//Data length in bytes after header
-	uint32_t	dataLength;		
+	uint32_t	length;		
 
 	//1 bit flags
 	Krle_flagByte flags;

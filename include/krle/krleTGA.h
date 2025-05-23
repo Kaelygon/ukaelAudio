@@ -57,13 +57,25 @@ typedef struct {
 
 
 extern uint8_t krle_orchisPalette[16][3];
+void krle_paletteRGBToLAB(Krle_LAB *labPalette, uint8_t rgbPalette[16][3]);
 
+//TGA
+Krle_TGAHeader krle_createTGAHeader(uint16_t width, uint16_t height);
 Krle_TGAHeader krle_readTGAFile(const char *filePath, uint8_t **pixelsTGA);
+void krle_writeTGAFile(const char* fileName, Krle_TGAHeader TGAHeader, uint8_t *pixelsTGA);
 
-uint8_t krle_jumpToPixels(uint8_t *pixelsTGA, Krle_TGAHeader header, uint8_t jumpLength, uint32_t *px);
-uint8_t krle_runNibbleToPixels(uint8_t *pixelsTGA, Krle_TGAHeader header, uint8_t byte, uint32_t *px);
-uint8_t krle_pairNibbleToPixels(uint8_t *pixelsTGA, Krle_TGAHeader header, uint8_t byte, uint32_t *px);
+//KRLE
+Krle_header krle_createKRLEHeader(uint16_t width, uint16_t height, uint32_t length, uint8_t ratio);
+void krle_writeKRLEFile(const uint8_t *krleString, Krle_header krleHeader, const char* fileName);
 
-uint32_t krle_toPixels(const uint8_t *krleString, uint8_t *pixelsTGA, const Krle_TGAHeader header);
-void krle_pixelsToKRLE(KaelTree *krleFormat, Krle_LAB labPalette[16], Krle_TGAHeader header, uint8_t *pixels, uint8_t stretchFactor);
-void krle_initLabPalette(Krle_LAB *labPalette, uint8_t rgbPalette[16][3]);
+//KRLE<->Pixels
+uint32_t krle_KRLEToPixels(const uint8_t *krleString, uint8_t *pixelsTGA, const Krle_header header);
+void krle_pixelsToKRLE(KaelTree *krleFormat, Krle_LAB labPalette[16], uint8_t *pixels, uint16_t width, uint16_t height, uint8_t stretchFactor);
+
+
+
+
+
+
+
+
