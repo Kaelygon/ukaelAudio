@@ -20,10 +20,16 @@
 
 #include "krle/krleBase.h"
 
+//Row down smapleType for krle_TGAToKRLE
+typedef enum{
+	KRLE_NEAREST,
+	KRLE_BILINEAR,
+	KRLE_LAB_AVG,
+}Krle_sampleType;
+
 #ifndef KRLE_EXTRA_DEBUGGING
 	#define KRLE_EXTRA_DEBUGGING 0
 #endif
-
 #pragma pack(push, 1)
 typedef struct {
 	uint8_t idLength;
@@ -45,32 +51,37 @@ typedef struct {
 }Krle_TGAHeader;
 #pragma pack(pop)
 
-typedef struct {
+typedef struct{
 	uint8_t r, g, b;
 }Krle_RGB;
 
-typedef struct {
+typedef struct{
 	float l, a, b;
 }Krle_LAB;
 
+extern Krle_LAB KRLE_MAGENTA_LAB; //Debug color
 
-
-
+//Default palette
 extern uint8_t krle_orchisPalette[16][3];
 void krle_paletteRGBToLAB(Krle_LAB *labPalette, uint8_t rgbPalette[16][3]);
 
-//TGA
+//TGA<->KRLE conversion
+void krle_TGAToKRLE(const char *TGAFile, const char *KRLEFile, uint8_t stretchFactor, uint8_t sampleType);
+void krle_KRLEToTGA(const char *KRLEFile, const char *TGAFile);
+
+//TGA helpers
 Krle_TGAHeader krle_createTGAHeader(uint16_t width, uint16_t height);
 Krle_TGAHeader krle_readTGAFile(const char *filePath, uint8_t **pixelsTGA);
 void krle_writeTGAFile(const char* fileName, Krle_TGAHeader TGAHeader, uint8_t *pixelsTGA);
 
-//KRLE
+//KRLE helpers
 Krle_header krle_createKRLEHeader(uint16_t width, uint16_t height, uint32_t length, uint8_t ratio);
+Krle_header krle_readKRLEFile(const char *filePath, uint8_t **KRLEString);
 void krle_writeKRLEFile(const uint8_t *krleString, Krle_header krleHeader, const char* fileName);
 
-//KRLE<->Pixels
-uint32_t krle_KRLEToPixels(const uint8_t *krleString, uint8_t *pixelsTGA, const Krle_header header);
-void krle_pixelsToKRLE(KaelTree *krleFormat, Krle_LAB labPalette[16], uint8_t *pixels, uint16_t width, uint16_t height, uint8_t stretchFactor);
+//KRLE<->Pixels Conversion
+uint32_t krle_KRLEToPixels(const uint8_t *KRLEString, uint8_t **TGAPixels, const Krle_header header);
+void krle_pixelsToKRLE(KaelTree *krleFormat, Krle_LAB labPalette[16], uint8_t *pixels, uint16_t width, uint16_t height, uint8_t stretchFactor, uint8_t sampleType);
 
 
 

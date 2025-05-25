@@ -8,6 +8,7 @@
 
 #include "krle/krleTGA.h"
 
+Krle_LAB KRLE_MAGENTA_LAB = {.l=60.3, .a=98.3, .b=-60.8}; //Magenta
 
 /**
  * @brief {R, G, B} Tilix Orchis ANSI colors
@@ -33,6 +34,75 @@ uint8_t krle_orchisPalette[16][3] = {
 };
 
 //------ File I/O ------
+
+/**
+ * @brief TGA to krle encode function
+ */
+void krle_TGAToKRLE(const char *TGAFile, const char *KRLEFile, uint8_t stretchFactor, uint8_t sampleType){
+	if(NULL_CHECK(TGAFile) || NULL_CHECK(KRLEFile)){
+		return;
+	}
+	
+	stretchFactor = stretchFactor==0 ? 1 : stretchFactor;
+	uint8_t *TGAPixels = NULL;
+
+	Krle_TGAHeader TGAHeader = krle_readTGAFile(TGAFile, &TGAPixels);
+	uint32_t pixelsTotal = TGAHeader.width * TGAHeader.height;
+
+	if(pixelsTotal==0){
+		return;
+	}
+
+	//Convert orchis palette to LAB
+	Krle_LAB orchisPaletteLAB[16] = {0};
+	krle_paletteRGBToLAB(orchisPaletteLAB, krle_orchisPalette);
+	
+
+	//Convert TGA to KRLE string
+	KaelTree krleFormat = {0};
+	krle_pixelsToKRLE(&krleFormat, orchisPaletteLAB, TGAPixels, TGAHeader.width, TGAHeader.height, stretchFactor, sampleType);
+	free(TGAPixels);
+
+	uint16_t squashedHeight = (TGAHeader.height+(stretchFactor-1))/stretchFactor; //ceil
+	Krle_header KRLEHeader = krle_createKRLEHeader( TGAHeader.width, squashedHeight, kaelTree_length(&krleFormat), stretchFactor);
+
+	const uint8_t *KRLEString = kaelTree_get(&krleFormat, 0);
+	krle_writeKRLEFile(KRLEString, KRLEHeader, KRLEFile);
+	kaelTree_free(&krleFormat);
+
+
+	//Info printing
+	uint16_t compressedSize = KRLEHeader.length;
+	uint32_t stretchedPixels = TGAHeader.width*TGAHeader.height/stretchFactor;
+	float bytesPerPixel =  8.0*(float)compressedSize/(stretchedPixels);
+	float pixelsPerByte = (float)stretchedPixels/compressedSize;
+	printf("%u pixels converted to %u bytes\n", stretchedPixels, compressedSize);
+	printf("%.2f pixels per byte\n", pixelsPerByte);
+	printf("%.2f bits per pixel\n",bytesPerPixel);
+}
+
+
+/**
+ * @brief KRLE to TGA conversion function
+ */
+void krle_KRLEToTGA(const char *KRLEFile, const char *TGAFile){
+	if(NULL_CHECK(TGAFile) || NULL_CHECK(KRLEFile)){
+		return;
+	}
+
+	uint8_t *KRLEString = NULL;
+	Krle_header KRLEHeader = krle_readKRLEFile(KRLEFile, &KRLEString);
+	
+	uint8_t *TGAPixels = NULL;
+
+	krle_KRLEToPixels(KRLEString, &TGAPixels, KRLEHeader);
+	Krle_TGAHeader TGAHeader = krle_createTGAHeader(KRLEHeader.width, KRLEHeader.height*KRLEHeader.ratio);
+	krle_writeTGAFile(TGAFile, TGAHeader, TGAPixels);
+
+	free(TGAPixels);
+	free(KRLEString);
+}
+
 
 //--- TGA ---
 
@@ -83,7 +153,7 @@ void krle_writeTGAFile(const char* fileName, Krle_TGAHeader TGAHeader, uint8_t *
 /**
  * @brief Create default TGA BGRA32 header template
  */
-Krle_TGAHeader krle_createTGAHeader(uint16_t height, uint16_t width){
+Krle_TGAHeader krle_createTGAHeader(uint16_t width, uint16_t height){
 	Krle_TGAHeader TGAHeader = {0};
 	TGAHeader.dataTypeCode = 2;
 	TGAHeader.height = height;
@@ -97,6 +167,37 @@ Krle_TGAHeader krle_createTGAHeader(uint16_t height, uint16_t width){
 
 
 //--- KRLE ---
+
+
+/**
+ * @brief Read and copy KRLE file into string
+ */
+Krle_header krle_readKRLEFile(const char *filePath, uint8_t **KRLEString){
+	FILE *file = fopen(filePath, "rb");
+	if(!file) {
+		printf("Failed to open %s",filePath);
+		return (Krle_header){0};
+	}
+	
+	Krle_header header;
+	fread(&header, sizeof(Krle_header), 1, file);
+	
+	if(header.length == 0){
+		fprintf(stderr, "Invalid byte string length\n");
+		fclose(file);
+		return (Krle_header){0};
+	}
+	
+	*KRLEString = calloc(header.length*sizeof(uint8_t), 1);
+	if(NULL_CHECK(*KRLEString)){
+		return (Krle_header){0};
+	}
+ 	
+	fread(*KRLEString, sizeof(uint8_t), header.length, file);
+	fclose(file);
+
+	return header;
+}
 
 /**
  * @brief Write krle string to file
@@ -151,7 +252,7 @@ static float krle_pivotXYZ(float n) {
 /**
  * @brief RGB to LAB color conversion
  */
-Krle_LAB krle_rgbToLab(Krle_RGB rgbPalette) {
+Krle_LAB krle_RGBToLAB(Krle_RGB rgbPalette) {
 	// Linearize RGB
 	float R = krle_pivotRGB((float)rgbPalette.r);
 	float G = krle_pivotRGB((float)rgbPalette.g);
@@ -187,12 +288,53 @@ float krle_labDistance(Krle_LAB lab1, Krle_LAB lab2){
 }
 
 float krle_rgbDistance(Krle_RGB rgb1, Krle_RGB rgb2){
-	Krle_LAB lab1 = krle_rgbToLab(rgb1);
-	Krle_LAB lab2 = krle_rgbToLab(rgb2);
+	Krle_LAB lab1 = krle_RGBToLAB(rgb1);
+	Krle_LAB lab2 = krle_RGBToLAB(rgb2);
 	return krle_labDistance(lab1, lab2);
 }
 
+//--- LAB to RGB ---
 
+// https://web.archive.org/web/20111111080001/http://www.easyrgb.com/index.php?X=MATH&H=01#tex1
+Krle_RGB krle_LABToRGB( Krle_LAB LABCol){
+	float var_Y = ( LABCol.l + 16. ) / 116.;
+	float var_X = LABCol.a / 500. + var_Y;
+	float var_Z = var_Y - LABCol.b / 200.;
+
+	if ( pow(var_Y,3) > 0.008856 ) var_Y = pow(var_Y,3);
+	else                      var_Y = ( var_Y - 16. / 116. ) / 7.787;
+	if ( pow(var_X,3) > 0.008856 ) var_X = pow(var_X,3);
+	else                      var_X = ( var_X - 16. / 116. ) / 7.787;
+	if ( pow(var_Z,3) > 0.008856 ) var_Z = pow(var_Z,3);
+	else                      var_Z = ( var_Z - 16. / 116. ) / 7.787;
+
+	float X = 95.047 * var_X ;    //ref_X =  95.047     Observer= 2°, Illuminant= D65
+	float Y = 100.000 * var_Y  ;   //ref_Y = 100.000
+	float Z = 108.883 * var_Z ;    //ref_Z = 108.883
+
+
+	var_X = X / 100. ;       //X from 0 to  95.047      (Observer = 2°, Illuminant = D65)
+	var_Y = Y / 100. ;       //Y from 0 to 100.000
+	var_Z = Z / 100. ;      //Z from 0 to 108.883
+
+	float var_R = var_X *  3.2406 + var_Y * -1.5372 + var_Z * -0.4986;
+	float var_G = var_X * -0.9689 + var_Y *  1.8758 + var_Z *  0.0415;
+	float var_B = var_X *  0.0557 + var_Y * -0.2040 + var_Z *  1.0570;
+
+	if ( var_R > 0.0031308 ) var_R = 1.055 * pow(var_R , ( 1 / 2.4 ))  - 0.055;
+	else                     var_R = 12.92 * var_R;
+	if ( var_G > 0.0031308 ) var_G = 1.055 * pow(var_G , ( 1 / 2.4 ) )  - 0.055;
+	else                     var_G = 12.92 * var_G;
+	if ( var_B > 0.0031308 ) var_B = 1.055 * pow( var_B , ( 1 / 2.4 ) ) - 0.055;
+	else                     var_B = 12.92 * var_B;
+
+	Krle_RGB RGBColor = {
+		var_R * 255.,
+		var_G * 255.,
+		var_B * 255.
+	};
+	return RGBColor;
+}
 
 
 
@@ -209,20 +351,20 @@ void krle_paletteRGBToLAB(Krle_LAB *labPalette, uint8_t rgbPalette[16][3]){
 			rgbPalette[i][1],
 			rgbPalette[i][2]
 		};
-		labPalette[i] = krle_rgbToLab(rgbTriple);
+		labPalette[i] = krle_RGBToLAB(rgbTriple);
 	}
 }
 
 /**
  * @brief Find nearest color to RGB triple
  */
-int krle_palettizeRGB(Krle_LAB *labPalette, Krle_RGB rgbColor) {
-	Krle_LAB original = krle_rgbToLab(rgbColor);
+int krle_palettizeLAB(Krle_LAB *labPalette, Krle_LAB labColor) {
+	
 	float minDist = INFINITY;
 	int minIndex = 0;
 
 	for (int i = 0; i < 16; i++) {
-		 float dist = krle_labDistance(original, labPalette[i]);
+		 float dist = krle_labDistance(labColor, labPalette[i]);
 
 		 if (dist < minDist) {
 			  minDist = dist;
@@ -260,43 +402,24 @@ void unit_krle_printRGB24Pixels(uint8_t *TGAPixels, uint32_t pixelsTotal){
 
 
 
-//------ Convert 32bit BGRA pixels to KRLE string ------
 
-/**
- * @brief Toggle between pixel modes
- */
-void krle_switchPixelMode(KaelTree *krleFormat, uint8_t *currentMode, uint8_t newMode ){
-	if(*currentMode==newMode){
-		//No switching
-		return;
-	}
-	switch(newMode){
-		case KRLE_PIXEL_RUN:
-			*currentMode=KRLE_PIXEL_RUN;
-			kaelTree_push(krleFormat,&(uint8_t){KRLE_PIXEL_RUN});
-			break;
-		case KRLE_PIXEL_PAIR:
-			*currentMode=KRLE_PIXEL_PAIR;
-			kaelTree_push(krleFormat,&(uint8_t){KRLE_PIXEL_PAIR});
-			break;
-	}
-}
+
+
+
+
+
+//------ Convert 32bit BGRA pixels to KRLE string ------
 
 /**
  * @brief Append jump run to krle string
  */
-void krle_packJumpRun(KaelTree *krleFormat, uint8_t currentMode, uint32_t *jumpLength, uint32_t maxJump){
+void krle_packJumpRun(KaelTree *krleFormat, uint32_t *jumpLength, uint32_t maxJump){
 	#if KRLE_EXTRA_DEBUGGING==1
 		printf("Jump runs ");
 	#endif
 	while(*jumpLength){
 		uint8_t runLength = kaelMath_min(*jumpLength, maxJump);
-		if(currentMode==KRLE_PIXEL_RUN){
-			kaelTree_push(krleFormat,&(uint8_t){KRLE_RUN_JUMP});
-		}else
-		if(currentMode==KRLE_PIXEL_PAIR){
-			kaelTree_push(krleFormat,&(uint8_t){KRLE_PAIR_JUMP});
-		}
+		kaelTree_push(krleFormat,&(uint8_t){KRLE_PIXEL_JUMP});
 		kaelTree_push(krleFormat,&(uint8_t){runLength});
 		
 		#if KRLE_EXTRA_DEBUGGING==1
@@ -313,8 +436,7 @@ void krle_packJumpRun(KaelTree *krleFormat, uint8_t currentMode, uint32_t *jumpL
 /**
  * @brief Append pixel run to krle string
  */
-void krle_packPixelRun(KaelTree *krleFormat, uint8_t *currentMode, uint8_t paletteIndex, uint32_t *pixelLength, uint32_t maxPixelLength){
-	krle_switchPixelMode(krleFormat, currentMode, KRLE_PIXEL_RUN);
+void krle_packPixelRun(KaelTree *krleFormat, uint8_t paletteIndex, uint32_t *pixelLength, uint32_t maxPixelLength){
 	//Chain of same pixels ended
 	#if KRLE_EXTRA_DEBUGGING==1
 		printf("palette %u runs ", paletteIndex);
@@ -343,53 +465,158 @@ void krle_unpackPixelRun(uint8_t byte, uint8_t *paletteIndex, uint8_t *length ){
 	kaelMath_u8unpack(byte, paletteIndex, length); //High nibble is read first
 }
 
-void krle_packPixelPair(KaelTree *krleFormat, uint8_t *currentMode, uint8_t first, uint8_t second ){
-	krle_switchPixelMode(krleFormat, currentMode, KRLE_PIXEL_PAIR);
-	#if KRLE_EXTRA_DEBUGGING==1
-		printf("Pair %u -> %u\n", first, second);
-	#endif
-	uint8_t byte = kaelMath_u8pack(first, second); //High nibble is read first, little endian
-	kaelTree_push(krleFormat,&(uint8_t){byte});
-}
-
-void krle_unpackPixelPair(uint8_t byte, uint8_t *first, uint8_t *second ){
-	kaelMath_u8unpack(byte, first, second); //High nibble is read first
-}
-
 
 //------ RLE Detection Incrementor ------
 
-uint8_t krle_isWithinRange(uint16_t height, uint32_t *y){
-	return *y < height;
+/**
+ * @brief Validate row offset and return pixel offset to a row in the same column. If invalid return 0. If px is invalid, return UINT32_MAX
+ * 
+ * Sometimes interpolation results choosing pixel beyond last row if stretchFactor doesn't divide height.
+ */
+uint32_t krle_findFirstValidRow(uint8_t rowOffset, uint16_t TGAWidth, uint16_t TGAHeight, uint32_t px){
+	uint32_t flatOffset = rowOffset * TGAWidth; // px + flatOffset == pixel in same column below of current pixel
+
+	//Validate offset and find first valid pixel
+	if(px + flatOffset >= TGAWidth * TGAHeight){
+		if(rowOffset==0){
+			return UINT32_MAX; //px is invalid
+		}
+		//Find first valid pixel
+		do{
+			rowOffset--;
+			if(rowOffset==0){
+				//Only target row is valid;
+				return 0;
+			}
+			flatOffset = rowOffset * TGAWidth;
+		}while(px + flatOffset >= TGAWidth * TGAHeight);
+	}
+	
+	return flatOffset;
 }
 
 /**
- * @brief Portions of the KRLE runs have to be incremented while nested
+ * @brief Sample RGB row stripe nearest neighbor, take middle pixle of the rwo
  */
-uint8_t krle_incrementor(uint16_t width, uint16_t height, uint32_t *i, uint32_t *x, uint32_t *y, uint32_t addend){
+Krle_LAB krle_nearestRow(uint8_t *TGAPixels, uint16_t TGAWidth, uint16_t TGAHeight, uint32_t px, uint8_t stretchFactor){
+	if(NULL_CHECK(TGAPixels)){
+		return KRLE_MAGENTA_LAB;
+	}
+
+	uint32_t yOffset = krle_findFirstValidRow(((stretchFactor+1)/2), TGAWidth, TGAHeight, px);
+	Krle_RGB RGBColor = (Krle_RGB){
+		TGAPixels[(px+yOffset)*4+2],
+		TGAPixels[(px+yOffset)*4+1],
+		TGAPixels[(px+yOffset)*4+0],
+	};
+
+	return krle_RGBToLAB(RGBColor);
+}
+
+/**
+ * @brief Sample RGB row stripe in LAB space average into one RGB pixel
+ */
+Krle_LAB krle_LABAvgRow(uint8_t *TGAPixels, uint16_t TGAWidth, uint16_t TGAHeight, uint32_t px, uint8_t stretchFactor){
+	if(NULL_CHECK(TGAPixels)){
+		return KRLE_MAGENTA_LAB;
+	}
+	
+	Krle_LAB avgLAB = {0};
+	for(uint16_t j=0; j<stretchFactor; j++){
+		uint32_t yOffset = krle_findFirstValidRow(j, TGAWidth, TGAHeight, px);
+		if(yOffset==UINT32_MAX){
+			return KRLE_MAGENTA_LAB;
+		}
+
+		Krle_RGB RGBColor = (Krle_RGB){
+			TGAPixels[(px+yOffset)*4+2],
+			TGAPixels[(px+yOffset)*4+1],
+			TGAPixels[(px+yOffset)*4+0],
+		};
+
+		Krle_LAB labBuf = krle_RGBToLAB(RGBColor);
+		avgLAB.l += labBuf.l;
+		avgLAB.a += labBuf.a;
+		avgLAB.b += labBuf.b;
+	}
+	avgLAB.l = avgLAB.l/(float)stretchFactor;
+	avgLAB.a = avgLAB.a/(float)stretchFactor;
+	avgLAB.b = avgLAB.b/(float)stretchFactor;
+
+	return avgLAB;
+}
+
+/**
+ * @brief Sample RGB row stripe using bilinear interpolation in LAB space
+ */
+Krle_LAB krle_bilinearRow(uint8_t *TGAPixels, uint16_t TGAWidth, uint16_t TGAHeight, uint32_t px, uint8_t stretchFactor){
+	if(NULL_CHECK(TGAPixels) || stretchFactor < 2){
+		return KRLE_MAGENTA_LAB;
+	}
+
+	uint32_t offsetTop = 0;
+	uint32_t offsetBot = krle_findFirstValidRow((stretchFactor-1), TGAWidth, TGAHeight, px);
+	if(offsetBot==UINT32_MAX){
+		return KRLE_MAGENTA_LAB;
+	}
+
+	//Top and bottom pixels
+	Krle_RGB topRGB = {
+		TGAPixels[(px + offsetTop) * 4 + 2],
+		TGAPixels[(px + offsetTop) * 4 + 1],
+		TGAPixels[(px + offsetTop) * 4 + 0]
+	};
+	Krle_RGB botRGB = {
+		TGAPixels[(px + offsetBot) * 4 + 2],
+		TGAPixels[(px + offsetBot) * 4 + 1],
+		TGAPixels[(px + offsetBot) * 4 + 0]
+	};
+	Krle_LAB labTop = krle_RGBToLAB(topRGB);
+	Krle_LAB labBot = krle_RGBToLAB(botRGB);
+
+	float weight = 0.5;
+	Krle_LAB outLAB = {
+		.l = labTop.l * (1.0f - weight) + labBot.l * weight,
+		.a = labTop.a * (1.0f - weight) + labBot.a * weight,
+		.b = labTop.b * (1.0f - weight) + labBot.b * weight
+	};
+
+	return outLAB;
+}
+
+/**
+ * @brief Is current row in canvas && fail safe
+ */
+uint8_t krle_isWithinRange(uint16_t width, uint16_t height, uint32_t i, uint32_t y){
+	return (y < height) && (i<width*height);
+}
+
+/**
+ * @brief Read each pixel in column and skip rows by stretchFactor
+ */
+uint8_t krle_incrementor(uint16_t width, uint16_t height, uint32_t *i, uint32_t *x, uint32_t *y, uint32_t stretchFactor){
 	if(i==NULL || x==NULL || y==NULL ){
-		return 0xFF;
+		return 0;
 	}
 	(*x)+=1;
 	if(*x>=width){
-		*y+=addend;
+		*y+=stretchFactor;
 		*x=0;
 	}
 	*i = *y * width + *x;
-
-	return krle_isWithinRange(height, y);
+	return krle_isWithinRange(width, height, *i, *y);
 }
 
 /**
- * @brief encode TGA pixels into KRLE
+ * @brief encode TGA (BGRA32) pixels into KRLE
  * 
  * @note Formatting
  * Call marker once 			[pixelRuns : 8bit] [color : 4bit, length 4bit] -||- ...
  * Call marker once 			[pixelPair : 8bit] [color : 4bit, color  4bit] -||- ...
- * Call marker every jump 	[KRLE_RUN_JUMP : 8bit] [length : 8bit] ...
+ * Call marker every jump 	[KRLE_PIXEL_JUMP : 8bit] [length : 8bit] ...
  */
-void krle_pixelsToKRLE(KaelTree *krleFormat, Krle_LAB labPalette[16], uint8_t *pixels, uint16_t width, uint16_t height, uint8_t stretchFactor){
-	if(NULL_CHECK(krleFormat) || NULL_CHECK(labPalette) || NULL_CHECK(pixels) ){
+void krle_pixelsToKRLE(KaelTree *krleFormat, Krle_LAB labPalette[16], uint8_t *TGAPixels, uint16_t TGAWidth, uint16_t TGAHeight, uint8_t stretchFactor, uint8_t sampleType){
+	if(NULL_CHECK(krleFormat) || NULL_CHECK(labPalette) || NULL_CHECK(TGAPixels) ){
 		return;
 	}
 	stretchFactor = stretchFactor==0 ? 1 : stretchFactor;
@@ -397,121 +624,104 @@ void krle_pixelsToKRLE(KaelTree *krleFormat, Krle_LAB labPalette[16], uint8_t *p
 	//Raw 5 bit colors per pixel (4bit colors 1bit alpha), 1.6 pixels in byte
 	//Converted fromat fits 3-2 pixels into one byte. Worst case scenario ~8 bits in one byte  
 	kaelTree_alloc(krleFormat,sizeof(uint8_t));
-	kaelTree_reserve(krleFormat, width * height / (2*stretchFactor));
-	
-	//Worst case scenario prints pair/run marker too often, if switching to runs, stay there for cooldownLength pixels
-	//Run mode marker has to be used for single pixels anyways
-	//Pairs do well in noise or dithering where runs are longer than 1 pixels
-	uint8_t cooldownLength = 15;
-	uint8_t startCooldown = 1;
-	uint8_t modeCooldown = 0;
+	kaelTree_reserve(krleFormat, TGAWidth * TGAHeight / (2*stretchFactor));
 
 	const uint32_t maxJump=UINT8_MAX;
 	const uint32_t maxPixelLength=15;
-	const uint8_t alphaClip=128;
+	const uint8_t alphaClip=127; //pixel is discarded at this alpha value or lower
 
 	uint32_t pixelCount = 0; //for debugging
 	uint32_t pixelLength=0; //How long pixel run
-	uint8_t prevPalette = 0xFF;
-	uint8_t currentPixelMode = KRLE_PIXEL_RUN; //is current mode runs or pairs?
+	uint8_t prevPixel = 0xFF;
+	uint32_t jumpLength=0;
 
 	uint32_t i=0,x=0,y=0;
 
-	//byte order: BGRA
-	while( krle_isWithinRange(height, &y) ){
+	//If first pixel is transparent, it's a jump run
+	uint8_t isJumpRun = TGAPixels[0*4+3]<=alphaClip; //1==Jump Run, 0=Pixel Run
 
-		countJumpRuns: //jump runs
-		if( pixels[i*4+3] < alphaClip ){
-			uint32_t jumpLength=0;
-			do{
-				uint8_t alpha = pixels[i*4+3];
-				if(alpha<alphaClip){
-					jumpLength++;
-				}
-				if(alpha>alphaClip && jumpLength){
-					pixelCount+=jumpLength;
-					krle_packJumpRun(krleFormat, currentPixelMode, &jumpLength, maxJump);
-					break;
-				}
-			}while( krle_incrementor(width, height, &i, &x, &y, stretchFactor) );
-		}
+	/**
+	 * Detect whether pixel is transparent or opaque. 
+	 * When run ends, switch to other sub-loop without incrementing as both loops need to read the same pixel that broke a run
+	 * stretchFactor=2 means that every odd row is skipped to "squish" the pixels as terminal characters are roughly 2 tall 1 wide
+	 * 
+	 * T=transparent, O=opaque
+	 * Jump loop
+	 * Read and increment i [T, i++, T, i++, T, i++, O, break] 
+	 * (Switch to run loop) 
+	 * Read and increment i [O, i++, O, i++, O, i++, T, break] 
+	 * (Switch to jump loop)
+	 */
+	while( krle_isWithinRange(TGAWidth, TGAHeight, i, y) ){
+		uint8_t alpha = TGAPixels[i*4+3];
+		uint8_t isTransparent = alpha<=alphaClip;
 
-		if(!krle_isWithinRange(height, &y)){
-			break;
-		}
+		if(isJumpRun){
+			//Jump runs sub-loop
+			if(isTransparent){
+				//Transparent
+				jumpLength++;
+			}else
+			if(jumpLength){
+				//Opaque; Jump run ends
+				pixelCount+=jumpLength;
+				krle_packJumpRun(krleFormat, &jumpLength, maxJump);
 
-		prevPalette=0xFF;
-		pixelLength = 0;
-		uint32_t runLength=0;
-		modeCooldown = startCooldown;
-		do{
-			//pixel runs
-			uint8_t alpha = pixels[i*4+3];
+				//break without increment
+				isJumpRun=0;
+				continue;
+			}
+		
+		}else{
+			//Pixel runs sub-loop
+			uint8_t thisPixel = 0xFF;
 
-			uint8_t thisPalette = 0xFF;
-			if(alpha>alphaClip){
-				Krle_RGB rgbTriple;
-				rgbTriple.r = pixels[i*4+2];
-				rgbTriple.g = pixels[i*4+1];
-				rgbTriple.b = pixels[i*4+0];
+			if(!isTransparent){
+				//Opaque
+				//Sample pixel
+				Krle_LAB LABTriple = KRLE_MAGENTA_LAB;
 
-				thisPalette = krle_palettizeRGB(labPalette, rgbTriple);
-				#if KRLE_EXTRA_DEBUGGING==1
-					krle_debugColorDistance(rgbTriple, krle_orchisPalette, thisPalette);
-				#endif
-
-				if( thisPalette==prevPalette ){
-					pixelLength++;
+				if(sampleType==KRLE_LAB_AVG){
+					LABTriple = krle_LABAvgRow(TGAPixels, TGAWidth, TGAHeight, i, stretchFactor);
+				}else
+				if(sampleType==KRLE_BILINEAR){
+					LABTriple = krle_bilinearRow(TGAPixels, TGAWidth, TGAHeight, i, stretchFactor);
 				}else{
-					runLength = pixelLength;
-					pixelLength = 1;
+					//Default 0, KRLE_NEAREST_NEIGHBOR
+					LABTriple = krle_nearestRow(TGAPixels, TGAWidth, TGAHeight, i, stretchFactor);
 				}
+
+				thisPixel = krle_palettizeLAB(labPalette, LABTriple);
+				#if KRLE_EXTRA_DEBUGGING==1
+					krle_debugColorDistance(LABTriple, krle_orchisPalette, thisPixel);
+				#endif
 			}
 
-			if(runLength){
-				if((runLength>1 || modeCooldown) && thisPalette != 0xFF){
-					if(currentPixelMode!=KRLE_PIXEL_RUN){
-						//recently switched. Prevent switching back to pairs immediately
-						modeCooldown = cooldownLength;
-					}
-					modeCooldown -= modeCooldown!=0;
-
-					//run longer than 1 ended. 
-					pixelCount+=runLength;
-					krle_packPixelRun(krleFormat, &currentPixelMode, prevPalette, &runLength, maxPixelLength);
-				}
-				else
-				if(runLength<=1 && thisPalette != 0xFF && prevPalette!=0xFF ){
-					//pixel pair (even if latter was at beginning of a run)
-					pixelCount+=2;
-					krle_packPixelPair(krleFormat, &currentPixelMode, prevPalette, thisPalette); //Order is important first, second'
-					thisPalette=0xFF;
-					prevPalette=0xFF;
-				}
-				runLength=0;
+			if((thisPixel!=prevPixel && pixelLength) || isTransparent){
+				//run longer than 1 ended OR next pixel is transparent
+				pixelCount+=pixelLength;
+				krle_packPixelRun(krleFormat, prevPixel, &pixelLength, maxPixelLength);
+			}
+			
+			if(isTransparent){
+				//break without increment
+				isJumpRun=1;
+				continue;
 			}
 
-			if( alpha<alphaClip ){
-				if(pixelLength && prevPalette!=0xFF){
-					//clear remaining pixels before jump
-					pixelCount+=pixelLength;
-					krle_packPixelRun(krleFormat, &currentPixelMode, prevPalette, &pixelLength, maxPixelLength);
-					pixelLength=0;
-				}
-				//Jump without increment as the same byte will be read by jump runs
-				goto countJumpRuns;
-			}
+			pixelLength++; //Add thisPixel to next run
+			prevPixel = thisPixel;
+		}
 
-			prevPalette = thisPalette;
-
-		}while( krle_incrementor(width, height, &i, &x, &y, stretchFactor) );
+		krle_incrementor(TGAWidth, TGAHeight, &i, &x, &y, stretchFactor);
 	}
 
 	//clear remaining pixels. Trailing jumps are ignored
-	if(prevPalette!=0xFF && pixelLength){
+	if(prevPixel!=0xFF && pixelLength){
 		pixelCount+=pixelLength;
-		krle_packPixelRun(krleFormat, &currentPixelMode, prevPalette, &pixelLength, maxPixelLength);
+		krle_packPixelRun(krleFormat, prevPixel, &pixelLength, maxPixelLength);
 	}
+	
 	//May differ from actual size since trailing jumps are ignored
 	printf("Wrote %d pixels into KRLE string\n",pixelCount);
 
@@ -523,8 +733,38 @@ void krle_pixelsToKRLE(KaelTree *krleFormat, Krle_LAB labPalette[16], uint8_t *p
 
 
 
+
 //------ KRLE to 32bit BGRA pixels ------
 
+/**
+ * @brief Copy colors and repeat each row header.ratio times
+ * 
+ * For example, if header.ratio==2, even lines are repeated twice effectively stretching the image height by 2x
+ */
+uint8_t krle_applyPixelRatio(uint8_t *TGAPixels, Krle_header header, uint32_t *px, uint8_t R, uint8_t G, uint8_t B, uint8_t A){
+	for(uint16_t j=0; j<header.ratio; j++){
+		if(*px > header.width * header.height * header.ratio){
+			return KRLE_ERR_PIXEL_OVERFLOW;
+		}
+		//Repeat pixels on next rows
+		uint32_t yOffset = j*header.width; 
+		TGAPixels[(*px+yOffset)*4+2] = R;
+		TGAPixels[(*px+yOffset)*4+1] = G;
+		TGAPixels[(*px+yOffset)*4+0] = B;
+		TGAPixels[(*px+yOffset)*4+3] = A;
+	}
+
+	*px+=1;
+	if(*px % header.width==0){
+		//Whenever last column is reached, we skip the repeated rows
+		*px += (header.ratio-1) * header.width;
+	}
+	return KRLE_SUCCESS;
+}
+
+/**
+ * @brief Convert KRLE Jump to pixels
+ */
 uint8_t krle_jumpToPixels(uint8_t *TGAPixels, Krle_header header, uint8_t jumpLength, uint32_t *px){
 	if(jumpLength==0){
 		printf("Pixel %u Invalid Jump Length\n", *px);
@@ -532,22 +772,18 @@ uint8_t krle_jumpToPixels(uint8_t *TGAPixels, Krle_header header, uint8_t jumpLe
 	}
 	for(uint16_t i=0; i<jumpLength; i++){
 		//Transparent white
-		TGAPixels[*px*4+2] = 255; //R
-		TGAPixels[*px*4+1] = 255; //G
-		TGAPixels[*px*4+0] = 255; //B
-		TGAPixels[*px*4+3] = 0; //A
-		*px+=1;
-		if(*px >= header.width * header.height){
-			return KRLE_ERR_PIXEL_OVERFLOW;
+		uint8_t code = krle_applyPixelRatio(TGAPixels, header, px, 255, 255, 255, 0);
+		if(code!=KRLE_SUCCESS){
+			return code;
 		}
 	}
 	return KRLE_SUCCESS;
 }
 
 
-
-//--- run and pair nibbles ---
-
+/**
+ * @brief Convert KRLE run to pixels
+ */
 uint8_t krle_runToPixels(uint8_t *TGAPixels, Krle_header header, uint8_t byte, uint32_t *px){
 	uint8_t paletteIndex;
 	uint8_t length;
@@ -558,100 +794,59 @@ uint8_t krle_runToPixels(uint8_t *TGAPixels, Krle_header header, uint8_t byte, u
 		return KRLE_ERR_ZERO_JUMP;
 	}
 	for(uint16_t i=0; i<length; i++){
-		TGAPixels[*px*4+2] = krle_orchisPalette[paletteIndex][0]; //R
-		TGAPixels[*px*4+1] = krle_orchisPalette[paletteIndex][1]; //G
-		TGAPixels[*px*4+0] = krle_orchisPalette[paletteIndex][2]; //B
-		TGAPixels[*px*4+3] = 255; //A
-		*px+=1;
-
-		if(*px >= header.width * header.height){
-			return KRLE_ERR_PIXEL_OVERFLOW;
+		uint8_t code = krle_applyPixelRatio(
+			TGAPixels, header, px, 
+			krle_orchisPalette[paletteIndex][0],
+			krle_orchisPalette[paletteIndex][1],
+			krle_orchisPalette[paletteIndex][2],
+			255
+		);
+		if(code!=KRLE_SUCCESS){
+			return code;
 		}
 	}
 	return KRLE_SUCCESS;
-}
-
-uint8_t krle_pairToPixels(uint8_t *TGAPixels, Krle_header header, uint8_t byte, uint32_t *px){
-		uint8_t firstPalette;
-		uint8_t secondPalette;
-		
-		krle_unpackPixelPair(byte, &firstPalette, &secondPalette);
-		
-		if(firstPalette == secondPalette){
-			return KRLE_IDENTICAL_PAIR;
-		}
-		
-		TGAPixels[*px*4+2] = krle_orchisPalette[firstPalette][0]; //R
-		TGAPixels[*px*4+1] = krle_orchisPalette[firstPalette][1]; //G
-		TGAPixels[*px*4+0] = krle_orchisPalette[firstPalette][2]; //B
-		TGAPixels[*px*4+3] = 255; //A
-		*px+=1;
-
-		if(*px >= header.width * header.height){
-			return KRLE_ERR_PIXEL_OVERFLOW;
-		}
-		
-		TGAPixels[*px*4+2] = krle_orchisPalette[secondPalette][0]; //R
-		TGAPixels[*px*4+1] = krle_orchisPalette[secondPalette][1]; //G
-		TGAPixels[*px*4+0] = krle_orchisPalette[secondPalette][2]; //B
-		TGAPixels[*px*4+3] = 255; //A
-		*px+=1;
-
-		return KRLE_SUCCESS;
 }
 
 
 
 /**
  * @brief Convert KRLE null terminated byte string into 32-bit BGRA pixels
+ * 
+ * if TGAPixels is NULL, 4*width*hegith bytes is allocated
  */
-uint32_t krle_KRLEToPixels(const uint8_t *KRLEString, uint8_t *TGAPixels, const Krle_header header){
-	if(NULL_CHECK(KRLEString) || NULL_CHECK(TGAPixels)){
+uint32_t krle_KRLEToPixels(const uint8_t *KRLEString, uint8_t **TGAPixels, const Krle_header header){
+	if(NULL_CHECK(KRLEString)){
 		printf("NULL input in krle_KRLEToPixels()\n");
 		return 0;
 	}
-	uint32_t totalPixels = header.width*header.height;
+
+	uint32_t totalPixels = header.width * header.height * header.ratio;
 	uint32_t px=0; //pixel index
 
-	uint8_t currentMode = KRLE_PIXEL_RUN;
+	if( NULL_CHECK(*TGAPixels)){
+		*TGAPixels = calloc( 4*totalPixels, sizeof(uint8_t)); //32bits per pixel stretched by header.ratio
+		if(NULL_CHECK(*TGAPixels)){
+			printf("TGAPixels failed to alloc\n");
+			return 0;
+		}
+	}
+
 
 	const uint8_t *readHead = KRLEString;
 
 	uint8_t code=KRLE_SUCCESS;
 
 	while( px<totalPixels && readHead[0]!=0){
-		if(currentMode==KRLE_PIXEL_RUN){
-			switch(readHead[0]){
-				case KRLE_PIXEL_PAIR:
-					currentMode = KRLE_PIXEL_PAIR;
-					break;
-	
-				case KRLE_RUN_JUMP:
-					readHead++; //Skip marker
-					code = krle_jumpToPixels(TGAPixels, header, readHead[0], &px);
-					break;
-	
-				default:
-					code = krle_runToPixels(TGAPixels, header, readHead[0], &px);
-					break;
-			}
-		}else 
-		if(currentMode==KRLE_PIXEL_PAIR){
-			//Marker values switch in modes
-			switch(readHead[0]){
-				case KRLE_PIXEL_RUN:
-					currentMode = KRLE_PIXEL_RUN;
-					break;
-	
-					case KRLE_PAIR_JUMP:
-						readHead++; //Skip marker
-						code = krle_jumpToPixels(TGAPixels, header, readHead[0], &px);
-						break;
-	
-				default:
-					code = krle_pairToPixels(TGAPixels, header, readHead[0], &px);
-					break;
-			}
+		switch(readHead[0]){
+			case KRLE_PIXEL_JUMP:
+				readHead++; //Skip marker
+				code = krle_jumpToPixels(*TGAPixels, header, readHead[0], &px);
+				break;
+
+			default:
+				code = krle_runToPixels(*TGAPixels, header, readHead[0], &px);
+				break;
 		}
 		
 		if(code!=KRLE_SUCCESS){
@@ -660,17 +855,13 @@ uint32_t krle_KRLEToPixels(const uint8_t *KRLEString, uint8_t *TGAPixels, const 
 				printf("Zero jump is not allowed");
 			}else
 			if(code==KRLE_ERR_PIXEL_OVERFLOW){
-				printf("Read too many pixels from KRLE string");
-			}
-			if(code==KRLE_IDENTICAL_PAIR){
-				printf("2 identical nibbles in PAIR mode are used as markers");
+				printf("Read too many pixels from KRLE string\n");
 			}
 			break;
 		}
 		readHead++;
 	}
 
-	//TODO: apply stetch factor
 
 	printf("Read %u pixels from KRLE string\n",px);
 	return px;

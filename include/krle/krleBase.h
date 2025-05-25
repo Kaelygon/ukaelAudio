@@ -77,7 +77,7 @@ typedef union {
 typedef struct{
 	//Image size in pixels
 	uint16_t width;
-	uint16_t height;
+	uint16_t height; //"Squashed height"
 
 	//Ansi color codes
 	//[8x Dim FG], [8x Dim BG], [8x Bright FG], [8x Bright BG]
@@ -109,40 +109,22 @@ typedef enum{
 	KRLE_SUCCESS				= 0,
 	KRLE_ERR_ZERO_JUMP		= 128,
 	KRLE_ERR_PIXEL_OVERFLOW = 129,
-	KRLE_IDENTICAL_PAIR 		= 130,
 }krle_error;
 
 /**
  * @brief Draw pixel mode special markers 
  *
  * @note
- * Call marker once 			[pixelRuns : 8bit] [color : 4bit, length 4bit] -||- ...
- * Call marker once 			[pixelPair : 8bit] [color : 4bit, color  4bit] -||- ...
+ * Pixel mode
+ * Pixel runs [color : 4bit] [length : 4bit]
  * Call marker every jump 	[pixelJump : 8bit] [length : 8bit] ...
  * 
- * Markers switch depending if you are in pixelModeRun or pixelModePair
- * This is result of free binary ranges changing depending how the two nibbles are constructed  
- * For example calling pixelModeRun in run mode will results in 1 red pixel
+ * Zero length pixels are not valid, freeing values 0bABCD000 for markers
  * 
  * byte nibbles = [hi : 4bit, lo: 4bit]
 */
 typedef enum{
-	KRLE_PIXEL_TERMINATE = 0, //NULL termination character
-
-	// --- pixel run mode ---
-	//@note In run mode there can never be
-	// byte format = [colorONE : 4bit, length : 4bit]
-
-	KRLE_PIXEL_PAIR	= 1<<4u, //TODO: Switch mode, 
-	KRLE_RUN_JUMP		= 2<<4u, //Advance by next (uint8_t)byte in run mode
-
-	// --- Pixel pair mode ---
-	//@note  in pair mode there can never be 2 of the same color so can use markers 0bABCD:ABCD
-	// byte format = [colorONE : 4bit, colorTWO : 4bit]
-	
-	KRLE_PIXEL_RUN	= 1<<4U | 1, //Return to run mode
-	KRLE_PAIR_JUMP	= 2<<4u | 2, //jump in pair mode
-
+	KRLE_PIXEL_JUMP		= 2<<4u, //Advance by next (uint8_t)byte in run mode
 }Krle_drawModeMarker;
 
 /**
