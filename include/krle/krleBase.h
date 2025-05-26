@@ -16,11 +16,6 @@
 //------ Global variables ------
 //TODO: update style doc. all caps is bit of an eye sore so maybe we'll rethink on that stylization
 
-//--- Constant values ---
-
-extern const char *krle_constChar[];
-extern const uint8_t krle_constCharLen[];
-
 extern const uint8_t krle_defaultColorTable[32];
 extern const uint8_t krle_defaultAttributeTable[8];
 
@@ -28,27 +23,6 @@ extern const uint8_t krle_defaultAttributeTable[8];
 
 extern const uint8_t *krle_colorTable;
 extern const uint8_t *krle_attributeTable;
-
-
-
-
-//------ Typedef ------
-
-/**
- * @brief Ansi color code escape sequence encoded in a single byte
- * Text mode ansiStyle byte
- * 
- * @warning At least one value has to be non-zero 
- */
-typedef union {
-	struct {
-		uint8_t color  : 3; //3bit ansi SGR standard color 
-		uint8_t back   : 1; //Background or Foreground: 0=FG, 1=BG
-		uint8_t bright : 1; //Normal or Bright: 0=Normal, 1=Bright 
-		uint8_t style  : 3; //SGR attribute
-	};
-	uint8_t byte;
-}Krle_ansiStyle;
 
 
 
@@ -96,6 +70,10 @@ typedef struct{
 	Krle_flagByte flags;
 
 }Krle_header;
+
+
+
+
 
 
 
@@ -277,10 +255,3 @@ typedef enum {
 	ANSI_NOT_FRAMED = 54,
 	ANSI_NOT_OVERLINED = 55
 } krle_SGRAttributes;
-
-
-
-//------ Functions ------
-
-Krle_ansiStyle krle_encodeStyle(const uint8_t bright, const uint8_t back, const uint8_t color, const uint8_t style);
-Krle_ansiStyle krle_decodeStyle(const uint8_t byte);

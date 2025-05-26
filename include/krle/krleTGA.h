@@ -11,7 +11,6 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <limits.h>
-#include <math.h>
 
 #include "kaelygon/global/kaelMacros.h"
 
@@ -19,6 +18,7 @@
 #include "kaelygon/treeMem/tree.h"
 
 #include "krle/krleBase.h"
+#include "krle/krleColor.h"
 
 //Row down smapleType for krle_TGAToKRLE
 typedef enum{
@@ -30,6 +30,7 @@ typedef enum{
 #ifndef KRLE_EXTRA_DEBUGGING
 	#define KRLE_EXTRA_DEBUGGING 0
 #endif
+
 #pragma pack(push, 1)
 typedef struct {
 	uint8_t idLength;
@@ -51,20 +52,6 @@ typedef struct {
 }Krle_TGAHeader;
 #pragma pack(pop)
 
-typedef struct{
-	uint8_t r, g, b;
-}Krle_RGB;
-
-typedef struct{
-	float l, a, b;
-}Krle_LAB;
-
-extern Krle_LAB KRLE_MAGENTA_LAB; //Debug color
-
-//Default palette
-extern uint8_t krle_orchisPalette[16][3];
-void krle_paletteRGBToLAB(Krle_LAB *labPalette, uint8_t rgbPalette[16][3]);
-
 //TGA<->KRLE conversion
 void krle_TGAToKRLE(const char *TGAFile, const char *KRLEFile, uint8_t stretchFactor, uint8_t sampleType);
 void krle_KRLEToTGA(const char *KRLEFile, const char *TGAFile);
@@ -81,7 +68,7 @@ void krle_writeKRLEFile(const uint8_t *krleString, Krle_header krleHeader, const
 
 //KRLE<->Pixels Conversion
 uint32_t krle_KRLEToPixels(const uint8_t *KRLEString, uint8_t **TGAPixels, const Krle_header header);
-void krle_pixelsToKRLE(KaelTree *krleFormat, Krle_LAB labPalette[16], uint8_t *pixels, uint16_t width, uint16_t height, uint8_t stretchFactor, uint8_t sampleType);
+void krle_pixelsToKRLE(KaelTree *krleTree, const Krle_LAB *labPalette, const uint8_t *TGAPixels, uint16_t width, uint16_t height, uint8_t stretchFactor, uint8_t sampleType);
 
 
 

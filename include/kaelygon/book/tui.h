@@ -13,6 +13,11 @@
 
 #include "krle/krleBase.h"
 
+//--- Constant values ---
+
+extern const char *kaelTui_constChar[];
+extern const uint8_t kaelTui_constCharLen[];
+
 /**
  * @brief fancy string print buffer
  */
@@ -24,22 +29,18 @@ typedef struct{
 	const uint8_t* readPtr; //string char index being read
 }KaelTui_rowBuffer;
 
-
-//------ Ansi style escape sequence ------
-
-uint8_t kaelTui_styleToString(char *escSeq, const Krle_ansiStyle ansiStyle, uint16_t offset);
-
 //------ Push to Row Bufffer ------
 
 void kaelTui_printRowBuf(KaelTui_rowBuffer *rowBuf);
 
 //Push strings
 void kaelTui_pushChar(KaelTui_rowBuffer *rowBuf, const char *string, const uint8_t bytes);
-void kaelTui_pushEscSeq(KaelTui_rowBuffer *rowBuf, uint16_t index);
+void kaelTui_pushConstChar(KaelTui_rowBuffer *rowBuf, uint16_t index);
+void kaelTui_oneArgEscSeq(KaelTui_rowBuffer *rowBuf, uint16_t arg1, char type);
+void kaelTui_twoArgEscSeq(KaelTui_rowBuffer *rowBuf, uint16_t arg1, uint16_t arg2, char type);
 
 //Used in drawing
 void kaelTui_pushSpace(KaelTui_rowBuffer *rowBuf, uint16_t spaceCount);
-void kaelTui_pushMarkerStyle(KaelTui_rowBuffer *rowBuf, uint8_t rawByte);
 
 //Panning
 void kaelTui_pushScroll(KaelTui_rowBuffer *rowBuf, uint8_t scrollCount, uint8_t scrollUp);
@@ -47,3 +48,4 @@ void kaelTui_pushLimitScroll(KaelTui_rowBuffer *rowBuf, uint16_t col, uint16_t r
 
 //Cursor move
 void kaelTui_pushMov(KaelTui_rowBuffer *rowBuf, uint16_t col, uint16_t row);
+

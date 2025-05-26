@@ -10,7 +10,6 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <limits.h>
-#include <math.h>
 
 #define KRLE_EXTRA_DEBUGGING 0
 
@@ -21,8 +20,8 @@
 
 #include "krle/krleTGA.h"
 
-void unit_krle(){
-	uint8_t index = 4;
+void unit_krleTGA(){
+	uint8_t index = 0;
 
 	const char *folderPath="./assets/";
 	const char *basenameList[] = {
@@ -50,6 +49,6 @@ void unit_krle(){
 }
 
 int main(){
-	unit_krle();
+	unit_krleTGA();
 	return 0;
 }

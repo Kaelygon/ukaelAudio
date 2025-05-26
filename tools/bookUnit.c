@@ -15,6 +15,8 @@
 #include "kaelygon/math/math.h"
 #include "kaelygon/global/kaelMacros.h"
 
+#include "kaelygon/book/bookDraw.h"
+
 const char KAELBOOK_TEST_PATTERN[] = "abcdefghijklmnopqrstvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 
 KaelBook_shape kaelBook_genCheckerboard(uint16_t width, uint16_t height, uint16_t col, uint16_t row, uint16_t ratio[2]){
@@ -100,6 +102,7 @@ KaelBook_shape kaelBook_genPixel(uint16_t width, uint16_t height, uint16_t col, 
 	shape.drawMode	= drawMode_pixel;
 
 	pixelLength = pixelLength&0b1111;
+	uint16_t mixByte = 0;
 
 	KaelTree tmpString;
 	kaelTree_alloc(&tmpString, sizeof(uint8_t));
@@ -112,9 +115,9 @@ KaelBook_shape kaelBook_genPixel(uint16_t width, uint16_t height, uint16_t col, 
 
 	for(uint16_t j=0; j<height; j++){
 		for(uint16_t i=0; i<width; i++){
-			uint8_t mixByte = (i + j*height)*13+7;
+			mixByte+=0b00010000; //Increment colors place
 
-			KaelBook_pixel pixel = {.byte=mixByte};
+			KaelBook_pixel pixel = {.byte = mixByte };
 			pixel.length = pixel.length == 0 ? 1 : pixel.length;
 			pixel.length = pixelLength ? pixelLength : pixel.length;
 
@@ -167,13 +170,7 @@ void unit_kaelBook_scramblePixels(KaelBook *book){
 		uint8_t *readHead = shapePtr->string;
 		while(readHead[0]){
 			switch(readHead[0]){
-				case KRLE_TEXT_STYLE:
-					readHead++;
-					break;
-				case KRLE_TEXT_JUMP:
-					readHead++;
-					break;
-				case KRLE_TEXT_SPACE:
+				case KRLE_PIXEL_JUMP:
 					readHead++;
 					break;
 				case 0:
@@ -182,10 +179,7 @@ void unit_kaelBook_scramblePixels(KaelBook *book){
 					// 
 					KaelBook_pixel pixel = kaelBook_decodePixel((uint8_t)readHead[0]);
 					pixel.color++;
-					pixel.color = pixel.color&0b111;
-					if(pixel.color==0){
-						pixel.bright = !pixel.bright;
-					}
+					pixel.bright = pixel.color==0 ? !pixel.bright : pixel.bright;
 					readHead[0] = pixel.byte;
 					readHead++;
 					break;

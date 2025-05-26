@@ -13,12 +13,13 @@
 #include "kaelygon/book/tui.h"
 
 #include "krle/krleBase.h"
+#include "krle/krleText.h"
 
 typedef union {
 	struct {
 		uint8_t length   : 4;
-		uint8_t color    : 3;
 		uint8_t bright   : 1;
+		uint8_t color    : 3;
 	};
 	uint8_t byte;
 }KaelBook_pixel;
@@ -27,7 +28,7 @@ typedef union {
 typedef enum{
 	drawMode_default	= 0,
 
-	//Pack pixel stripes in 1 byte. [4bit : color, 4bit : length]
+	//Pack pixel stripes in 1 byte. [3bit : color, 1bit bright, 4bit : length]
 	drawMode_pixel,	
 }KaelBook_drawMode;
 
@@ -58,27 +59,45 @@ typedef struct{
 
 
 
-//------ drawMode_pixel ------
-KaelBook_pixel kaelBook_encodePixel(uint8_t color, uint8_t length);
-KaelBook_pixel kaelBook_decodePixel(uint8_t byte);
+
 
 //------ Alloc / Free ------
-
 uint8_t kaelBook_allocBook(KaelBook *book, const uint16_t viewWidth, const uint16_t viewHeight, uint8_t *stringBuffer, const uint16_t printBufferSize);
 void kaelBook_freeBook(KaelBook *book);
 
 void kaelBook_freePage(KaelBook_page *page);
 void kaelBook_allocPage(KaelBook_page *page);
 
+
+
+//------ drawMode_pixel ------
+KaelBook_pixel kaelBook_encodePixel(uint8_t color, uint8_t bright, uint8_t length);
+KaelBook_pixel kaelBook_decodePixel(uint8_t byte);
+
+void kaelBook_pushMarkerStyle(KaelTui_rowBuffer *rowBuf, uint8_t rawByte);
+void kaelBook_pushMovInShape(KaelBook *book, KaelBook_shape *shapePtr, uint16_t col, uint16_t row);
+
+Krle_ansiStyle kaelBook_pixelToStyle(KaelBook_pixel pixel);
+
+//------ Panning ------
+void kaelBook_scrollRows(KaelBook *book, uint16_t scrollCount, uint16_t scrollUp);
+void kaelBook_scrollCols(KaelBook *book, uint16_t scrollCount, uint16_t scrollLeft);
+
+
+
+//------ Shape col/row visibility conditions  ------
+uint8_t kaelBook_isShapeInRows(KaelBook_shape *shapePtr, uint16_t rowY0, uint16_t rowY1 );
+uint8_t kaelBook_isShapeInView(KaelBook *book, KaelBook_shape *shapePtr);
+
+uint8_t kaelBook_isColInView(KaelBook *book, KaelBook_shape *shapePtr, uint16_t shapeCol);
+uint8_t kaelBook_isRowInView(KaelBook *book, KaelBook_shape *shapePtr, uint16_t shapeRow);
+
+uint8_t kaelBook_isTopClip(KaelBook *book, KaelBook_shape *shapePtr, uint16_t shapeRow);
+uint8_t kaelBook_isBotClip(KaelBook *book, KaelBook_shape *shapePtr, uint16_t shapeRow);
+KaelBook_shape *kaelBook_getShapeAt(KaelBook *book, uint16_t viewCol, uint16_t viewRow);
+
+
+
 //------ Get shapePtr ------
 KaelBook_shape *kaelBook_getShapeAt(KaelBook *book, uint16_t viewCol, uint16_t viewRow);
 
-//------ High level book manipulation ------
-
-void kaelBook_queueViewShapes(KaelBook *book);
-void kaelBook_switchPage(KaelBook *book, uint16_t index);
-void kaelBook_drawQueue(KaelBook *book);
-void kaelBook_resetStyle(KaelBook *book);
-
-void kaelBook_scrollRows(KaelBook *book, uint16_t scrollCount, uint16_t scrollUp);
-void kaelBook_scrollCols(KaelBook *book, uint16_t scrollCount, uint16_t scrollLeft);

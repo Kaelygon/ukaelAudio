@@ -1,7 +1,7 @@
 /**
  * @file tui.c
  * 
- * @brief Implementation, Text User Interface tools
+ * @brief Implementation, convert kaelBook commands into ANSI escape sequences which are periodically flushed to stdout
  */
 
 #include <string.h>
@@ -10,8 +10,33 @@
 
 
 
+//------ Global variables ------
+
+//--- Constant values ---
+
+/**
+ * @brief List of escape sequences enumerated by KaelTui_escSeqIndex
+ */
+const char *kaelTui_constChar[] = {
+	"\x1b[2J",	//escSeq_clear
+	"\x1b[2K",	//escSeq_clearRow
+	"\x1b[0m",	//escSeq_styleReset
+	"\x1b[r"		//escSeq_scrollReset
+};
+
+/**
+ * @brief List of kaelTui_escSeq lengths enumerated by KaelTui_escSeqIndex
+ */
+const uint8_t kaelTui_constCharLen[] = {
+	4,	//escSeq_clear
+	4,	//escSeq_clearRow
+	4,	//escSeq_styleReset
+	3	//escSeq_scrollReset
+};
+
 
 //------ Helper functions ------
+
 
 /**
  * @brief Convert uint16_t to string and write it to *buf. 
@@ -65,7 +90,28 @@ void kaelTui_printFullBuf(KaelTui_rowBuffer *rowBuf, uint16_t bytes){
 
 
 
-//------ Push constructed escape sequence to rowBuf
+
+//------ Push to buffer  ------
+
+/**
+ * @brief Push bytes of string to rowbuf
+*/
+void kaelTui_pushChar(KaelTui_rowBuffer *rowBuf, const char *string, const uint8_t bytes){
+	KAEL_ASSERT(rowBuf!=NULL);
+	KAEL_ASSERT(string!=NULL);
+
+	kaelTui_printFullBuf(rowBuf,bytes);
+	memcpy((uint8_t*)&rowBuf->s[rowBuf->pos], string, bytes);
+	rowBuf->pos+=bytes;
+	return;
+}
+
+/**
+ * @brief Wrapper function to push escSeq array by index
+ */
+void kaelTui_pushConstChar(KaelTui_rowBuffer *rowBuf, uint16_t index){
+	kaelTui_pushChar(rowBuf, kaelTui_constChar[index], kaelTui_constCharLen[index]);
+}
 
 /**
  * @brief push 1 argument escape sequence to rowBuf
@@ -97,32 +143,6 @@ void kaelTui_twoArgEscSeq(KaelTui_rowBuffer *rowBuf, uint16_t arg1, uint16_t arg
 	*readHead++ = type;
 
 	kaelTui_pushChar(rowBuf, escSeq, readHead - escSeq);
-}
-
-
-
-
-
-//------ Push to buffer  ------
-
-/**
- * @brief Push bytes of string to rowbuf
-*/
-void kaelTui_pushChar(KaelTui_rowBuffer *rowBuf, const char *string, const uint8_t bytes){
-	KAEL_ASSERT(rowBuf!=NULL);
-	KAEL_ASSERT(string!=NULL);
-
-	kaelTui_printFullBuf(rowBuf,bytes);
-	memcpy((uint8_t*)&rowBuf->s[rowBuf->pos], string, bytes);
-	rowBuf->pos+=bytes;
-	return;
-}
-
-/**
- * @brief Wrapper function to push escSeq array by index
- */
-void kaelTui_pushEscSeq(KaelTui_rowBuffer *rowBuf, uint16_t index){
-	kaelTui_pushChar(rowBuf, krle_constChar[index], krle_constCharLen[index]);
 }
 
 /**
@@ -170,20 +190,3 @@ void kaelTui_pushScroll(KaelTui_rowBuffer *rowBuf, uint8_t scrollCount, uint8_t 
 	}
 }
 
-/**
- * @brief Push decoded Text mode byte to string  
- */
-void kaelTui_pushMarkerStyle(KaelTui_rowBuffer *rowBuf, uint8_t rawByte){
-	KAEL_ASSERT(rowBuf!=NULL);
-
-	Krle_ansiStyle ansiStyle = krle_decodeStyle(rawByte);
-
-	if ( ansiStyle.byte == ANSI_RESET ) {
-		kaelTui_pushChar(rowBuf, krle_constChar[KRLE_STYLE_RESET], krle_constCharLen[KRLE_STYLE_RESET]);
-		return;
-	}
-
-	uint16_t arg1 = krle_attributeTable[ansiStyle.style &0b111 ];
-	uint16_t arg2 = krle_colorTable[		ansiStyle.byte &0b11111 ];
- 	kaelTui_twoArgEscSeq(rowBuf, arg1, arg2, 'm');
-}

@@ -8,30 +8,6 @@
 
 #include "krle/krleTGA.h"
 
-Krle_LAB KRLE_MAGENTA_LAB = {.l=60.3, .a=98.3, .b=-60.8}; //Magenta
-
-/**
- * @brief {R, G, B} Tilix Orchis ANSI colors
- */
-uint8_t krle_orchisPalette[16][3] = {
-	{  0,   0,   0}, //ansiBlack
-	{204,   0,   0}, //ansiRed
-	{ 77, 154,   5}, //ansiGreen
-	{195, 160,   0}, //ansiYellow
-	{ 52, 100, 163}, //ansiBlue
-	{117,  79, 123}, //ansiMagenta
-	{  5, 151, 154}, //ansiCyan
-	{211, 214, 207}, //ansiWhite
-
-	{ 84,  86,  82}, //ansiBrightBlack
-	{239,  40,  40}, //ansiBrightRed
-	{137, 226,  52}, //ansiBrightGreen
-	{251, 232,  79}, //ansiBrightYellow
-	{114, 158, 207}, //ansiBrightBlue
-	{172, 126, 168}, //ansiBrightMagenta
-	{ 52, 226, 226}, //ansiBrightCyan
-	{237, 237, 235}, //ansiBrightWhite	
-};
 
 //------ File I/O ------
 
@@ -54,21 +30,21 @@ void krle_TGAToKRLE(const char *TGAFile, const char *KRLEFile, uint8_t stretchFa
 	}
 
 	//Convert orchis palette to LAB
-	Krle_LAB orchisPaletteLAB[16] = {0};
-	krle_paletteRGBToLAB(orchisPaletteLAB, krle_orchisPalette);
+	Krle_LAB orchisPaletteLAB[KRLE_PALETTE_SIZE];
+	krle_paletteRGBToLAB(krle_orchisPalette, orchisPaletteLAB, KRLE_PALETTE_SIZE);
 	
 
 	//Convert TGA to KRLE string
-	KaelTree krleFormat = {0};
-	krle_pixelsToKRLE(&krleFormat, orchisPaletteLAB, TGAPixels, TGAHeader.width, TGAHeader.height, stretchFactor, sampleType);
+	KaelTree krleTree = {0};
+	krle_pixelsToKRLE(&krleTree, orchisPaletteLAB, TGAPixels, TGAHeader.width, TGAHeader.height, stretchFactor, sampleType);
 	free(TGAPixels);
 
 	uint16_t squashedHeight = (TGAHeader.height+(stretchFactor-1))/stretchFactor; //ceil
-	Krle_header KRLEHeader = krle_createKRLEHeader( TGAHeader.width, squashedHeight, kaelTree_length(&krleFormat), stretchFactor);
+	Krle_header KRLEHeader = krle_createKRLEHeader( TGAHeader.width, squashedHeight, kaelTree_length(&krleTree), stretchFactor);
 
-	const uint8_t *KRLEString = kaelTree_get(&krleFormat, 0);
+	const uint8_t *KRLEString = kaelTree_get(&krleTree, 0);
 	krle_writeKRLEFile(KRLEString, KRLEHeader, KRLEFile);
-	kaelTree_free(&krleFormat);
+	kaelTree_free(&krleTree);
 
 
 	//Info printing
@@ -165,9 +141,7 @@ Krle_TGAHeader krle_createTGAHeader(uint16_t width, uint16_t height){
 }
 
 
-
 //--- KRLE ---
-
 
 /**
  * @brief Read and copy KRLE file into string
@@ -238,174 +212,6 @@ Krle_header krle_createKRLEHeader(uint16_t width, uint16_t height, uint32_t leng
 
 
 
-//------ LAB conversions ------
-
-static float krle_pivotRGB(float n) {
-	n /= 255.0f;
-	return (n > 0.04045f) ? powf((n + 0.055f) / 1.055f, 2.4f) : (n / 12.92f);
-}
-
-static float krle_pivotXYZ(float n) {
-	return (n > 0.008856f) ? powf(n, 1.0f/3.0f) : (7.787f * n) + (16.0f / 116.0f);
-}
-
-/**
- * @brief RGB to LAB color conversion
- */
-Krle_LAB krle_RGBToLAB(Krle_RGB rgbPalette) {
-	// Linearize RGB
-	float R = krle_pivotRGB((float)rgbPalette.r);
-	float G = krle_pivotRGB((float)rgbPalette.g);
-	float B = krle_pivotRGB((float)rgbPalette.b);
-
-	// Convert to XYZ (D65)
-	float X = R * 0.4124f + G * 0.3576f + B * 0.1805f;
-	float Y = R * 0.2126f + G * 0.7152f + B * 0.0722f;
-	float Z = R * 0.0193f + G * 0.1192f + B * 0.9505f;
-
-	// Normalize by D65 reference white
-	X /= 0.95047f;
-	Y /= 1.00000f;
-	Z /= 1.08883f;
-
-	// Convert to LAB
-	X = krle_pivotXYZ(X);
-	Y = krle_pivotXYZ(Y);
-	Z = krle_pivotXYZ(Z);
-
-	Krle_LAB lab;
-	lab.l = (116.0f * Y) - 16.0f;
-	lab.a = 500.0f * (X - Y);
-	lab.b = 200.0f * (Y - Z);
-	return lab;
-}
-
-float krle_labDistance(Krle_LAB lab1, Krle_LAB lab2){
-	float dl = lab1.l - lab2.l;
-	float da = lab1.a - lab2.a;
-	float db = lab1.b - lab2.b;
-	return dl * dl + da * da + db * db;
-}
-
-float krle_rgbDistance(Krle_RGB rgb1, Krle_RGB rgb2){
-	Krle_LAB lab1 = krle_RGBToLAB(rgb1);
-	Krle_LAB lab2 = krle_RGBToLAB(rgb2);
-	return krle_labDistance(lab1, lab2);
-}
-
-//--- LAB to RGB ---
-
-// https://web.archive.org/web/20111111080001/http://www.easyrgb.com/index.php?X=MATH&H=01#tex1
-Krle_RGB krle_LABToRGB( Krle_LAB LABCol){
-	float var_Y = ( LABCol.l + 16. ) / 116.;
-	float var_X = LABCol.a / 500. + var_Y;
-	float var_Z = var_Y - LABCol.b / 200.;
-
-	if ( pow(var_Y,3) > 0.008856 ) var_Y = pow(var_Y,3);
-	else                      var_Y = ( var_Y - 16. / 116. ) / 7.787;
-	if ( pow(var_X,3) > 0.008856 ) var_X = pow(var_X,3);
-	else                      var_X = ( var_X - 16. / 116. ) / 7.787;
-	if ( pow(var_Z,3) > 0.008856 ) var_Z = pow(var_Z,3);
-	else                      var_Z = ( var_Z - 16. / 116. ) / 7.787;
-
-	float X = 95.047 * var_X ;    //ref_X =  95.047     Observer= 2°, Illuminant= D65
-	float Y = 100.000 * var_Y  ;   //ref_Y = 100.000
-	float Z = 108.883 * var_Z ;    //ref_Z = 108.883
-
-
-	var_X = X / 100. ;       //X from 0 to  95.047      (Observer = 2°, Illuminant = D65)
-	var_Y = Y / 100. ;       //Y from 0 to 100.000
-	var_Z = Z / 100. ;      //Z from 0 to 108.883
-
-	float var_R = var_X *  3.2406 + var_Y * -1.5372 + var_Z * -0.4986;
-	float var_G = var_X * -0.9689 + var_Y *  1.8758 + var_Z *  0.0415;
-	float var_B = var_X *  0.0557 + var_Y * -0.2040 + var_Z *  1.0570;
-
-	if ( var_R > 0.0031308 ) var_R = 1.055 * pow(var_R , ( 1 / 2.4 ))  - 0.055;
-	else                     var_R = 12.92 * var_R;
-	if ( var_G > 0.0031308 ) var_G = 1.055 * pow(var_G , ( 1 / 2.4 ) )  - 0.055;
-	else                     var_G = 12.92 * var_G;
-	if ( var_B > 0.0031308 ) var_B = 1.055 * pow( var_B , ( 1 / 2.4 ) ) - 0.055;
-	else                     var_B = 12.92 * var_B;
-
-	Krle_RGB RGBColor = {
-		var_R * 255.,
-		var_G * 255.,
-		var_B * 255.
-	};
-	return RGBColor;
-}
-
-
-
-//------ Helpers and debug tools ------
-
-/**
- * @brief Convert RGB24 palette to LAB
- */
-
-void krle_paletteRGBToLAB(Krle_LAB *labPalette, uint8_t rgbPalette[16][3]){
-	for (int i = 0; i < 16; i++){
-		Krle_RGB rgbTriple = (Krle_RGB){
-			rgbPalette[i][0],
-			rgbPalette[i][1],
-			rgbPalette[i][2]
-		};
-		labPalette[i] = krle_RGBToLAB(rgbTriple);
-	}
-}
-
-/**
- * @brief Find nearest color to RGB triple
- */
-int krle_palettizeLAB(Krle_LAB *labPalette, Krle_LAB labColor) {
-	
-	float minDist = INFINITY;
-	int minIndex = 0;
-
-	for (int i = 0; i < 16; i++) {
-		 float dist = krle_labDistance(labColor, labPalette[i]);
-
-		 if (dist < minDist) {
-			  minDist = dist;
-			  minIndex = i;
-		 }
-	}
-
-	return minIndex;
-}
-
-/**
- * @brief Convert RGB triple to LAB and calculate distance with palette LAB triple by index
- */
-void krle_debugColorDistance(Krle_RGB rgbTriple, uint8_t palette[16][3], uint8_t index){
-	Krle_RGB newTriple = (Krle_RGB){
-		palette[index][0],
-		palette[index][1],
-		palette[index][2]					
-	};
-	float colorDistance = krle_rgbDistance(newTriple, rgbTriple);
-   printf("palette %u delta %.2f\n", index, colorDistance);
-}
-
-void unit_krle_printRGB24Pixels(uint8_t *TGAPixels, uint32_t pixelsTotal){
-	for(uint32_t i=0; i<pixelsTotal; i++){
-		uint8_t b = TGAPixels[i*4+0];
-		uint8_t g = TGAPixels[i*4+1];
-		uint8_t r = TGAPixels[i*4+2];
-		printf("{%u, %u, %u},\n",r,g,b);
-	}
-	return;
-}
-
-
-
-
-
-
-
-
-
 
 
 //------ Convert 32bit BGRA pixels to KRLE string ------
@@ -413,14 +219,14 @@ void unit_krle_printRGB24Pixels(uint8_t *TGAPixels, uint32_t pixelsTotal){
 /**
  * @brief Append jump run to krle string
  */
-void krle_packJumpRun(KaelTree *krleFormat, uint32_t *jumpLength, uint32_t maxJump){
+void krle_packJumpRun(KaelTree *krleTree, uint32_t *jumpLength, uint32_t maxJump){
 	#if KRLE_EXTRA_DEBUGGING==1
 		printf("Jump runs ");
 	#endif
 	while(*jumpLength){
 		uint8_t runLength = kaelMath_min(*jumpLength, maxJump);
-		kaelTree_push(krleFormat,&(uint8_t){KRLE_PIXEL_JUMP});
-		kaelTree_push(krleFormat,&(uint8_t){runLength});
+		kaelTree_push(krleTree,&(uint8_t){KRLE_PIXEL_JUMP});
+		kaelTree_push(krleTree,&(uint8_t){runLength});
 		
 		#if KRLE_EXTRA_DEBUGGING==1
 			printf("%d ",runLength);
@@ -436,7 +242,7 @@ void krle_packJumpRun(KaelTree *krleFormat, uint32_t *jumpLength, uint32_t maxJu
 /**
  * @brief Append pixel run to krle string
  */
-void krle_packPixelRun(KaelTree *krleFormat, uint8_t paletteIndex, uint32_t *pixelLength, uint32_t maxPixelLength){
+void krle_packPixelRun(KaelTree *krleTree, uint8_t paletteIndex, uint32_t *pixelLength, uint32_t maxPixelLength){
 	//Chain of same pixels ended
 	#if KRLE_EXTRA_DEBUGGING==1
 		printf("palette %u runs ", paletteIndex);
@@ -445,7 +251,7 @@ void krle_packPixelRun(KaelTree *krleFormat, uint8_t paletteIndex, uint32_t *pix
 	while(*pixelLength){
 		uint8_t runLength = kaelMath_min(*pixelLength, maxPixelLength);
 		uint8_t pixelByte = kaelMath_u8pack(paletteIndex, runLength);
-		kaelTree_push(krleFormat,&(uint8_t){pixelByte});
+		kaelTree_push(krleTree,&(uint8_t){pixelByte});
 
 		#if KRLE_EXTRA_DEBUGGING==1
 			printf("%d ",runLength);
@@ -466,123 +272,8 @@ void krle_unpackPixelRun(uint8_t byte, uint8_t *paletteIndex, uint8_t *length ){
 }
 
 
+
 //------ RLE Detection Incrementor ------
-
-/**
- * @brief Validate row offset and return pixel offset to a row in the same column. If invalid return 0. If px is invalid, return UINT32_MAX
- * 
- * Sometimes interpolation results choosing pixel beyond last row if stretchFactor doesn't divide height.
- */
-uint32_t krle_findFirstValidRow(uint8_t rowOffset, uint16_t TGAWidth, uint16_t TGAHeight, uint32_t px){
-	uint32_t flatOffset = rowOffset * TGAWidth; // px + flatOffset == pixel in same column below of current pixel
-
-	//Validate offset and find first valid pixel
-	if(px + flatOffset >= TGAWidth * TGAHeight){
-		if(rowOffset==0){
-			return UINT32_MAX; //px is invalid
-		}
-		//Find first valid pixel
-		do{
-			rowOffset--;
-			if(rowOffset==0){
-				//Only target row is valid;
-				return 0;
-			}
-			flatOffset = rowOffset * TGAWidth;
-		}while(px + flatOffset >= TGAWidth * TGAHeight);
-	}
-	
-	return flatOffset;
-}
-
-/**
- * @brief Sample RGB row stripe nearest neighbor, take middle pixle of the rwo
- */
-Krle_LAB krle_nearestRow(uint8_t *TGAPixels, uint16_t TGAWidth, uint16_t TGAHeight, uint32_t px, uint8_t stretchFactor){
-	if(NULL_CHECK(TGAPixels)){
-		return KRLE_MAGENTA_LAB;
-	}
-
-	uint32_t yOffset = krle_findFirstValidRow(((stretchFactor+1)/2), TGAWidth, TGAHeight, px);
-	Krle_RGB RGBColor = (Krle_RGB){
-		TGAPixels[(px+yOffset)*4+2],
-		TGAPixels[(px+yOffset)*4+1],
-		TGAPixels[(px+yOffset)*4+0],
-	};
-
-	return krle_RGBToLAB(RGBColor);
-}
-
-/**
- * @brief Sample RGB row stripe in LAB space average into one RGB pixel
- */
-Krle_LAB krle_LABAvgRow(uint8_t *TGAPixels, uint16_t TGAWidth, uint16_t TGAHeight, uint32_t px, uint8_t stretchFactor){
-	if(NULL_CHECK(TGAPixels)){
-		return KRLE_MAGENTA_LAB;
-	}
-	
-	Krle_LAB avgLAB = {0};
-	for(uint16_t j=0; j<stretchFactor; j++){
-		uint32_t yOffset = krle_findFirstValidRow(j, TGAWidth, TGAHeight, px);
-		if(yOffset==UINT32_MAX){
-			return KRLE_MAGENTA_LAB;
-		}
-
-		Krle_RGB RGBColor = (Krle_RGB){
-			TGAPixels[(px+yOffset)*4+2],
-			TGAPixels[(px+yOffset)*4+1],
-			TGAPixels[(px+yOffset)*4+0],
-		};
-
-		Krle_LAB labBuf = krle_RGBToLAB(RGBColor);
-		avgLAB.l += labBuf.l;
-		avgLAB.a += labBuf.a;
-		avgLAB.b += labBuf.b;
-	}
-	avgLAB.l = avgLAB.l/(float)stretchFactor;
-	avgLAB.a = avgLAB.a/(float)stretchFactor;
-	avgLAB.b = avgLAB.b/(float)stretchFactor;
-
-	return avgLAB;
-}
-
-/**
- * @brief Sample RGB row stripe using bilinear interpolation in LAB space
- */
-Krle_LAB krle_bilinearRow(uint8_t *TGAPixels, uint16_t TGAWidth, uint16_t TGAHeight, uint32_t px, uint8_t stretchFactor){
-	if(NULL_CHECK(TGAPixels) || stretchFactor < 2){
-		return KRLE_MAGENTA_LAB;
-	}
-
-	uint32_t offsetTop = 0;
-	uint32_t offsetBot = krle_findFirstValidRow((stretchFactor-1), TGAWidth, TGAHeight, px);
-	if(offsetBot==UINT32_MAX){
-		return KRLE_MAGENTA_LAB;
-	}
-
-	//Top and bottom pixels
-	Krle_RGB topRGB = {
-		TGAPixels[(px + offsetTop) * 4 + 2],
-		TGAPixels[(px + offsetTop) * 4 + 1],
-		TGAPixels[(px + offsetTop) * 4 + 0]
-	};
-	Krle_RGB botRGB = {
-		TGAPixels[(px + offsetBot) * 4 + 2],
-		TGAPixels[(px + offsetBot) * 4 + 1],
-		TGAPixels[(px + offsetBot) * 4 + 0]
-	};
-	Krle_LAB labTop = krle_RGBToLAB(topRGB);
-	Krle_LAB labBot = krle_RGBToLAB(botRGB);
-
-	float weight = 0.5;
-	Krle_LAB outLAB = {
-		.l = labTop.l * (1.0f - weight) + labBot.l * weight,
-		.a = labTop.a * (1.0f - weight) + labBot.a * weight,
-		.b = labTop.b * (1.0f - weight) + labBot.b * weight
-	};
-
-	return outLAB;
-}
 
 /**
  * @brief Is current row in canvas && fail safe
@@ -608,23 +299,23 @@ uint8_t krle_incrementor(uint16_t width, uint16_t height, uint32_t *i, uint32_t 
 }
 
 /**
- * @brief encode TGA (BGRA32) pixels into KRLE
+ * @brief encode TGA (BGRA32) pixels into krle string stored as KaelTree
  * 
  * @note Formatting
  * Call marker once 			[pixelRuns : 8bit] [color : 4bit, length 4bit] -||- ...
  * Call marker once 			[pixelPair : 8bit] [color : 4bit, color  4bit] -||- ...
  * Call marker every jump 	[KRLE_PIXEL_JUMP : 8bit] [length : 8bit] ...
  */
-void krle_pixelsToKRLE(KaelTree *krleFormat, Krle_LAB labPalette[16], uint8_t *TGAPixels, uint16_t TGAWidth, uint16_t TGAHeight, uint8_t stretchFactor, uint8_t sampleType){
-	if(NULL_CHECK(krleFormat) || NULL_CHECK(labPalette) || NULL_CHECK(TGAPixels) ){
+void krle_pixelsToKRLE(KaelTree *krleTree, const Krle_LAB *labPalette, const uint8_t *TGAPixels, uint16_t TGAWidth, uint16_t TGAHeight, uint8_t stretchFactor, uint8_t sampleType){
+	if(NULL_CHECK(krleTree) || NULL_CHECK(labPalette) || NULL_CHECK(TGAPixels) ){
 		return;
 	}
 	stretchFactor = stretchFactor==0 ? 1 : stretchFactor;
 
 	//Raw 5 bit colors per pixel (4bit colors 1bit alpha), 1.6 pixels in byte
 	//Converted fromat fits 3-2 pixels into one byte. Worst case scenario ~8 bits in one byte  
-	kaelTree_alloc(krleFormat,sizeof(uint8_t));
-	kaelTree_reserve(krleFormat, TGAWidth * TGAHeight / (2*stretchFactor));
+	kaelTree_alloc(krleTree,sizeof(uint8_t));
+	kaelTree_reserve(krleTree, TGAWidth * TGAHeight / (2*stretchFactor));
 
 	const uint32_t maxJump=UINT8_MAX;
 	const uint32_t maxPixelLength=15;
@@ -665,7 +356,7 @@ void krle_pixelsToKRLE(KaelTree *krleFormat, Krle_LAB labPalette[16], uint8_t *T
 			if(jumpLength){
 				//Opaque; Jump run ends
 				pixelCount+=jumpLength;
-				krle_packJumpRun(krleFormat, &jumpLength, maxJump);
+				krle_packJumpRun(krleTree, &jumpLength, maxJump);
 
 				//break without increment
 				isJumpRun=0;
@@ -681,17 +372,17 @@ void krle_pixelsToKRLE(KaelTree *krleFormat, Krle_LAB labPalette[16], uint8_t *T
 				//Sample pixel
 				Krle_LAB LABTriple = KRLE_MAGENTA_LAB;
 
-				if(sampleType==KRLE_LAB_AVG){
+				if(sampleType==KRLE_LAB_AVG && stretchFactor > 1){
 					LABTriple = krle_LABAvgRow(TGAPixels, TGAWidth, TGAHeight, i, stretchFactor);
 				}else
-				if(sampleType==KRLE_BILINEAR){
+				if(sampleType==KRLE_BILINEAR && stretchFactor > 1){
 					LABTriple = krle_bilinearRow(TGAPixels, TGAWidth, TGAHeight, i, stretchFactor);
 				}else{
 					//Default 0, KRLE_NEAREST_NEIGHBOR
 					LABTriple = krle_nearestRow(TGAPixels, TGAWidth, TGAHeight, i, stretchFactor);
 				}
 
-				thisPixel = krle_palettizeLAB(labPalette, LABTriple);
+				thisPixel = krle_palettizeLAB(labPalette, LABTriple, KRLE_PALETTE_SIZE);
 				#if KRLE_EXTRA_DEBUGGING==1
 					krle_debugColorDistance(LABTriple, krle_orchisPalette, thisPixel);
 				#endif
@@ -700,7 +391,7 @@ void krle_pixelsToKRLE(KaelTree *krleFormat, Krle_LAB labPalette[16], uint8_t *T
 			if((thisPixel!=prevPixel && pixelLength) || isTransparent){
 				//run longer than 1 ended OR next pixel is transparent
 				pixelCount+=pixelLength;
-				krle_packPixelRun(krleFormat, prevPixel, &pixelLength, maxPixelLength);
+				krle_packPixelRun(krleTree, prevPixel, &pixelLength, maxPixelLength);
 			}
 			
 			if(isTransparent){
@@ -719,14 +410,14 @@ void krle_pixelsToKRLE(KaelTree *krleFormat, Krle_LAB labPalette[16], uint8_t *T
 	//clear remaining pixels. Trailing jumps are ignored
 	if(prevPixel!=0xFF && pixelLength){
 		pixelCount+=pixelLength;
-		krle_packPixelRun(krleFormat, prevPixel, &pixelLength, maxPixelLength);
+		krle_packPixelRun(krleTree, prevPixel, &pixelLength, maxPixelLength);
 	}
 	
 	//May differ from actual size since trailing jumps are ignored
 	printf("Wrote %d pixels into KRLE string\n",pixelCount);
 
 	//Null terminate
-	kaelTree_push(krleFormat,&(uint8_t){'\0'});
+	kaelTree_push(krleTree,&(uint8_t){'\0'});
 }
 
 
@@ -796,9 +487,9 @@ uint8_t krle_runToPixels(uint8_t *TGAPixels, Krle_header header, uint8_t byte, u
 	for(uint16_t i=0; i<length; i++){
 		uint8_t code = krle_applyPixelRatio(
 			TGAPixels, header, px, 
-			krle_orchisPalette[paletteIndex][0],
-			krle_orchisPalette[paletteIndex][1],
-			krle_orchisPalette[paletteIndex][2],
+			krle_orchisPalette[paletteIndex].r,
+			krle_orchisPalette[paletteIndex].g,
+			krle_orchisPalette[paletteIndex].b,
 			255
 		);
 		if(code!=KRLE_SUCCESS){

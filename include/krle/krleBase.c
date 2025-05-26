@@ -5,36 +5,11 @@
  * 
  */
 
-#include <stdlib.h>
-#include <stdint.h>
-
 #include "krle/krleBase.h"
 
 
 
 //------ Global variables ------
-
-//--- Constant values ---
-
-/**
- * @brief List of escape sequences enumerated by KaelTui_escSeqIndex
- */
-const char *krle_constChar[] = {
-	"\x1b[2J",	//escSeq_clear
-	"\x1b[2K",	//escSeq_clearRow
-	"\x1b[0m",	//escSeq_styleReset
-	"\x1b[r"		//escSeq_scrollReset
-};
-
-/**
- * @brief List of kaelTui_escSeq lengths enumerated by KaelTui_escSeqIndex
- */
-const uint8_t krle_constCharLen[] = {
-	4,	//escSeq_clear
-	4,	//escSeq_clearRow
-	4,	//escSeq_styleReset
-	3	//escSeq_scrollReset
-};
 
 
 
@@ -109,30 +84,3 @@ const uint8_t *krle_attributeTable = (uint8_t *)krle_defaultAttributeTable;
 
 
 
-
-
-
-//------ Functions ------
-
-/**
- * @brief Encode ansi color into a single byte
- *
- */ 
-Krle_ansiStyle krle_encodeStyle(const uint8_t bright, const uint8_t back, const uint8_t color, const uint8_t style){
-	Krle_ansiStyle code = {
-		.color 	=  color		& 0b111,
-		.back		=  back		& 0b1111,
-		.bright  = 	bright	& 0b1,
-		.style 	=  style		& 0b111
-	};
-	return code;
-}
-
-/**
- * @brief Encode ansi color into a single byte
- *
- */ 
-Krle_ansiStyle krle_decodeStyle(const uint8_t byte){
-	Krle_ansiStyle code = {.byte=byte};
-	return code;  
-}
