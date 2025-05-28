@@ -4,6 +4,7 @@
  * @brief header, Conversion tools to convert between TGA and KRLE (Kael Run Length Encoding)
  * 
  * Optimized for printing decoding bytes into ANSI escape codes rather than file size
+ * Limited to 64kib-1 file size
  */
 
 #include "krle/krleTGA.h"
@@ -36,6 +37,7 @@ void krle_TGAToKRLE(const char *TGAFile, const char *KRLEFile, uint8_t stretchFa
 
 	//Convert TGA to KRLE string
 	KaelTree krleTree = {0};
+	kaelTree_alloc(&krleTree,sizeof(uint8_t));
 	krle_pixelsToKRLE(&krleTree, orchisPaletteLAB, TGAPixels, TGAHeader.width, TGAHeader.height, stretchFactor, sampleType);
 	free(TGAPixels);
 
@@ -84,6 +86,8 @@ void krle_KRLEToTGA(const char *KRLEFile, const char *TGAFile){
 
 /**
  * @brief Read and copy TGA file BGRA32 pixels to a new allocation
+ * 
+ * @note TGAPixels must be freed after use
  */
 Krle_TGAHeader krle_readTGAFile(const char *filePath, uint8_t **TGAPixels){
 	FILE *file = fopen(filePath, "rb");
@@ -145,6 +149,8 @@ Krle_TGAHeader krle_createTGAHeader(uint16_t width, uint16_t height){
 
 /**
  * @brief Read and copy KRLE file into string
+ * 
+ * @note KRLEString must freed after use
  */
 Krle_header krle_readKRLEFile(const char *filePath, uint8_t **KRLEString){
 	FILE *file = fopen(filePath, "rb");
@@ -274,37 +280,40 @@ void krle_unpackPixelRun(uint8_t byte, uint8_t *paletteIndex, uint8_t *length ){
 
 
 //------ RLE Detection Incrementor ------
+typedef struct {
+	uint32_t i, x, y;
+	const uint32_t addx, addy;
+	const uint32_t height, width;
+	uint8_t isWithinRange;
+}Krle_iterator;
 
 /**
  * @brief Is current row in canvas && fail safe
  */
-uint8_t krle_isWithinRange(uint16_t width, uint16_t height, uint32_t i, uint32_t y){
-	return (y < height) && (i<width*height);
+uint8_t krle_isWithinRange(const Krle_iterator *it){
+	return it->isWithinRange;
 }
 
 /**
- * @brief Read each pixel in column and skip rows by stretchFactor
+ * @brief Increment flat array as 2D plane. Return state before addend
  */
-uint8_t krle_incrementor(uint16_t width, uint16_t height, uint32_t *i, uint32_t *x, uint32_t *y, uint32_t stretchFactor){
-	if(i==NULL || x==NULL || y==NULL ){
+uint8_t krle_increment(Krle_iterator *it){
+	if(NULL_CHECK(it) || !it->isWithinRange){
 		return 0;
 	}
-	(*x)+=1;
-	if(*x>=width){
-		*y+=stretchFactor;
-		*x=0;
+	it->x += it->addx;
+	if(it->x >= it->width){
+		it->y += it->addy;
+		it->x  = 0;
 	}
-	*i = *y * width + *x;
-	return krle_isWithinRange(width, height, *i, *y);
+	it->i = it->y * it->width + it->x;
+	it->isWithinRange = (it->y < it->height)/* && (it->i < it->width * it->height)*/;
+	return it->isWithinRange;
 }
 
 /**
  * @brief encode TGA (BGRA32) pixels into krle string stored as KaelTree
  * 
- * @note Formatting
- * Call marker once 			[pixelRuns : 8bit] [color : 4bit, length 4bit] -||- ...
- * Call marker once 			[pixelPair : 8bit] [color : 4bit, color  4bit] -||- ...
- * Call marker every jump 	[KRLE_PIXEL_JUMP : 8bit] [length : 8bit] ...
  */
 void krle_pixelsToKRLE(KaelTree *krleTree, const Krle_LAB *labPalette, const uint8_t *TGAPixels, uint16_t TGAWidth, uint16_t TGAHeight, uint8_t stretchFactor, uint8_t sampleType){
 	if(NULL_CHECK(krleTree) || NULL_CHECK(labPalette) || NULL_CHECK(TGAPixels) ){
@@ -314,7 +323,7 @@ void krle_pixelsToKRLE(KaelTree *krleTree, const Krle_LAB *labPalette, const uin
 
 	//Raw 5 bit colors per pixel (4bit colors 1bit alpha), 1.6 pixels in byte
 	//Converted fromat fits 3-2 pixels into one byte. Worst case scenario ~8 bits in one byte  
-	kaelTree_alloc(krleTree,sizeof(uint8_t));
+	kaelTree_setWidth(krleTree,sizeof(uint8_t));
 	kaelTree_reserve(krleTree, TGAWidth * TGAHeight / (2*stretchFactor));
 
 	const uint32_t maxJump=UINT8_MAX;
@@ -326,7 +335,12 @@ void krle_pixelsToKRLE(KaelTree *krleTree, const Krle_LAB *labPalette, const uin
 	uint8_t prevPixel = 0xFF;
 	uint32_t jumpLength=0;
 
-	uint32_t i=0,x=0,y=0;
+	Krle_iterator px = (Krle_iterator){
+		.i = 0, .x = 0, .y = 0,
+		.addx = 1, .addy = stretchFactor,
+		.width = TGAWidth, .height = TGAHeight,
+		.isWithinRange = 1,
+	};
 
 	//If first pixel is transparent, it's a jump run
 	uint8_t isJumpRun = TGAPixels[0*4+3]<=alphaClip; //1==Jump Run, 0=Pixel Run
@@ -343,8 +357,8 @@ void krle_pixelsToKRLE(KaelTree *krleTree, const Krle_LAB *labPalette, const uin
 	 * Read and increment i [O, i++, O, i++, O, i++, T, break] 
 	 * (Switch to jump loop)
 	 */
-	while( krle_isWithinRange(TGAWidth, TGAHeight, i, y) ){
-		uint8_t alpha = TGAPixels[i*4+3];
+	while(krle_isWithinRange(&px)){
+		uint8_t alpha = TGAPixels[px.i*4+3];
 		uint8_t isTransparent = alpha<=alphaClip;
 
 		if(isJumpRun){
@@ -373,13 +387,13 @@ void krle_pixelsToKRLE(KaelTree *krleTree, const Krle_LAB *labPalette, const uin
 				Krle_LAB LABTriple = KRLE_MAGENTA_LAB;
 
 				if(sampleType==KRLE_LAB_AVG && stretchFactor > 1){
-					LABTriple = krle_LABAvgRow(TGAPixels, TGAWidth, TGAHeight, i, stretchFactor);
+					LABTriple = krle_LABAvgRow(TGAPixels, TGAWidth, TGAHeight, px.i, stretchFactor);
 				}else
 				if(sampleType==KRLE_BILINEAR && stretchFactor > 1){
-					LABTriple = krle_bilinearRow(TGAPixels, TGAWidth, TGAHeight, i, stretchFactor);
+					LABTriple = krle_bilinearRow(TGAPixels, TGAWidth, TGAHeight, px.i, stretchFactor);
 				}else{
 					//Default 0, KRLE_NEAREST_NEIGHBOR
-					LABTriple = krle_nearestRow(TGAPixels, TGAWidth, TGAHeight, i, stretchFactor);
+					LABTriple = krle_nearestRow(TGAPixels, TGAWidth, TGAHeight, px.i, stretchFactor);
 				}
 
 				thisPixel = krle_palettizeLAB(labPalette, LABTriple, KRLE_PALETTE_SIZE);
@@ -404,7 +418,7 @@ void krle_pixelsToKRLE(KaelTree *krleTree, const Krle_LAB *labPalette, const uin
 			prevPixel = thisPixel;
 		}
 
-		krle_incrementor(TGAWidth, TGAHeight, &i, &x, &y, stretchFactor);
+		krle_increment(&px);
 	}
 
 	//clear remaining pixels. Trailing jumps are ignored
@@ -417,7 +431,12 @@ void krle_pixelsToKRLE(KaelTree *krleTree, const Krle_LAB *labPalette, const uin
 	printf("Wrote %d pixels into KRLE string\n",pixelCount);
 
 	//Null terminate
-	kaelTree_push(krleTree,&(uint8_t){'\0'});
+	uint8_t *newElem = kaelTree_push(krleTree,&(uint8_t){'\0'});
+	if(NULL_CHECK(newElem)){
+		//push failed due to being full
+		uint16_t lastIndex = kaelTree_length(krleTree)-1;
+		kaelTree_set(krleTree, lastIndex, &(uint8_t){'\0'} );
+	}
 }
 
 
@@ -504,7 +523,7 @@ uint8_t krle_runToPixels(uint8_t *TGAPixels, Krle_header header, uint8_t byte, u
 /**
  * @brief Convert KRLE null terminated byte string into 32-bit BGRA pixels
  * 
- * if TGAPixels is NULL, 4*width*hegith bytes is allocated
+ * @note TGAPixels must have allocation of 4*width*height bytes, OR left NULL to create a new allocation of that size
  */
 uint32_t krle_KRLEToPixels(const uint8_t *KRLEString, uint8_t **TGAPixels, const Krle_header header){
 	if(NULL_CHECK(KRLEString)){

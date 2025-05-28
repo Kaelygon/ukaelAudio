@@ -29,9 +29,9 @@ uint8_t kaelTree_resize(KaelTree *tree, const uint16_t n);
 uint8_t kaelTree_reserve(KaelTree *tree, const uint16_t length);
 
 //Manipulate elements
-KaelTree *kaelTree_push(KaelTree *tree, const void *restrict element);
+void *kaelTree_push(KaelTree *tree, const void *restrict element);
 uint8_t kaelTree_pop(KaelTree *tree);
-KaelTree *kaelTree_insert(KaelTree *tree, uint16_t index, const void *restrict element);
+void *kaelTree_insert(KaelTree *tree, uint16_t index, const void *restrict element);
 void kaelTree_set(KaelTree *tree, const uint16_t index, const void *restrict element);
 
 //Get ptr

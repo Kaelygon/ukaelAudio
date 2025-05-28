@@ -27,7 +27,7 @@
 #define GROWTH_NUMER 3 
 #define GROWTH_DENOM 2 
 
-#define ELEMS_MAX 32767 // (2^16-1)/GROWTH_FACTOR
+#define ELEMS_MAX (UINT16_MAX-1) // -1 that push ->length+1 can be done without a range change
 //#define ELEMS_MIN 0 //replaced by tree->reserve
 
 //---alloc and free---
@@ -35,7 +35,7 @@
 /**
  * @brief Initialize and allocate tree
  */
-uint8_t kaelTree_alloc(KaelTree *tree, const uint16_t size) {
+uint8_t kaelTree_alloc(KaelTree *tree, const uint16_t size){
 	if(NULL_CHECK(tree)){return KAEL_ERR_NULL;}
 	tree->length = 0;
 	tree->data = NULL;
@@ -66,7 +66,7 @@ uint8_t kaelTree_resize(KaelTree *tree, const uint16_t length){
 	if(NULL_CHECK(tree,"resize")){return KAEL_ERR_NULL;}
 
 	if(length > tree->maxLength){ //Beyond last growth stage
-		printf("Too many elements\n");
+		//printf("Too many elements\n");
     	return KAEL_ERR_FULL;
 	} 
 
@@ -76,8 +76,8 @@ uint8_t kaelTree_resize(KaelTree *tree, const uint16_t length){
 
 	//Shrinking nor 0 size doesn't invoke realloc
 	if( newAlloc > tree->capacity ){ 
-		if(newAlloc > (UINT16_MAX / GROWTH_NUMER) * GROWTH_DENOM){ //prevent overflow
-			newAlloc = UINT16_MAX;
+		if(newAlloc > (ELEMS_MAX / GROWTH_NUMER) * GROWTH_DENOM){ //prevent overflow
+			newAlloc = ELEMS_MAX;
 		}else{
 			newAlloc = newAlloc * GROWTH_NUMER/GROWTH_DENOM;
 		}
@@ -130,7 +130,7 @@ uint8_t kaelTree_reserve(KaelTree *tree, const uint16_t length){
 /**
  * @brief Insert at index
  */
-KaelTree *kaelTree_insert(KaelTree *tree, uint16_t index, const void *restrict element){
+void *kaelTree_insert(KaelTree *tree, uint16_t index, const void *restrict element){
 	if(NULL_CHECK(tree)){return NULL;}
 	KAEL_ASSERT(index < tree->length, "kaelTree_insert out of bounds");
 	uint8_t code = kaelTree_resize(tree, tree->length+1);
@@ -156,7 +156,7 @@ KaelTree *kaelTree_insert(KaelTree *tree, uint16_t index, const void *restrict e
 /**
  * @brief Add element to tree. NULL element is initialized as zero
  */
-KaelTree *kaelTree_push(KaelTree *tree, const void *restrict element){
+void *kaelTree_push(KaelTree *tree, const void *restrict element){
 	if(NULL_CHECK(tree)){return NULL;}
 	
 	uint8_t code = kaelTree_resize(tree, tree->length+1);
@@ -204,9 +204,8 @@ uint8_t kaelTree_pop(KaelTree *tree){
 void kaelTree_setWidth(KaelTree *tree, const uint16_t size){
 	if(NULL_CHECK(tree,"setSize")){return;}
 	tree->width=size;
-	uint16_t length = tree->length;
-	tree->maxLength = UINT16_MAX / tree->width - tree->reserve;
-	kaelTree_resize(tree,length); //resize with new byte width
+	tree->maxLength = ELEMS_MAX / tree->width - tree->reserve;
+	kaelTree_resize(tree, tree->length); //resize with new byte width
 }
 
 /**
