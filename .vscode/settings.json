@@ -184,7 +184,11 @@
     "time.h": "c",
     "cpuid.h": "c",
     "tree.h": "c",
-    "omp.h": "c"
+    "omp.h": "c",
+    "krlebase.h": "c",
+    "krle.h": "c",
+    "krletga.h": "c",
+    "krletext.h": "c"
   },
   "makefile.launchConfigurations": [
     {
@@ -206,5 +210,23 @@
     "type": "gdb",
     "miDebuggerPath": "/usr/bin/gdb"
   },
-  "C_Cpp_Runner.msvcBatchPath": ""
+  "C_Cpp_Runner.msvcBatchPath": "",
+  "workbench.colorCustomizations": {//Orchis palette
+    "terminal.ansiBlack": "#000000",
+    "terminal.ansiRed": "#CC0000",
+    "terminal.ansiGreen": "#4D9A05",
+    "terminal.ansiYellow": "#C3A000",
+    "terminal.ansiBlue": "#3464A3",
+    "terminal.ansiMagenta": "#754F7B",
+    "terminal.ansiCyan": "#05979A",
+    "terminal.ansiWhite": "#D3D6CF",
+    "terminal.ansiBrightBlack": "#545652",
+    "terminal.ansiBrightRed": "#EF2828",
+    "terminal.ansiBrightGreen": "#89E234",
+    "terminal.ansiBrightYellow": "#FBE84F",
+    "terminal.ansiBrightBlue": "#729ECF",
+    "terminal.ansiBrightMagenta": "#AC7EA8",
+    "terminal.ansiBrightCyan": "#34E2E2",
+    "terminal.ansiBrightWhite": "#EDEDEB"
+  }
 }

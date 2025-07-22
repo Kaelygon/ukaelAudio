@@ -169,15 +169,15 @@ void printPage(KaelTree *tree, uint16_t colCount, uint16_t rowCount, uint16_t br
 	}
 		
 }
- /** 
-  *  TODO: fix crash when excess elements are passed
-  * Use kaelStr instead char*? 
+
+/**
+ * @brief Test branched structure, tree containing a tree
  */
-void kaelTree_unit() {
+void kaelTree_drawSquares_unit() {
 	uint16_t branchCount = 1;
 	uint16_t leafCount = 8; 
 	uint16_t leafMaxLen = 64;
-	uint16_t cols = 128;
+	uint16_t cols = 64;
 	uint16_t rows = 16;
 
 	KaelTree tree;
@@ -192,8 +192,110 @@ void kaelTree_unit() {
 	//Free memory
 	unitTest_treeFree(&tree);
 
-	printf("kaelTree_unit Done\n");	
+
+	printf("unitTest_treeGenerate Done\n");	
 }
 
 
 
+
+
+
+
+
+/**
+ * @brief Test individual functions
+ */
+void kaelTree_functions_unit(){
+
+	KaelTree tree;
+	uint8_t code=KAEL_SUCCESS;
+	uint16_t elementCount=13;
+	uint16_t reserveCount=9;
+	uint16_t setElementIndex=2;
+
+	struct TestElement {
+		uint8_t number;
+		char *string;
+	};
+	struct TestElement originalElement = {
+		.number = 8,
+		.string = "ABCDEFG"
+	};
+
+
+
+
+	code = kaelTree_alloc(&tree, -1);
+	if(code!=KAEL_SUCCESS){
+		printf("Fail kaelTree_alloc\n");
+	}
+	kaelTree_setWidth(&tree, sizeof(originalElement));
+	kaelTree_resize(&tree, elementCount);
+	if(code!=KAEL_SUCCESS){
+		printf("Fail kaelTree_resize\n");
+	}
+	kaelTree_reserve(&tree, reserveCount);
+	if(code!=KAEL_SUCCESS){
+		printf("Fail kaelTree_reserve\n");
+	}
+
+
+	struct TestElement *newPush = kaelTree_push(&tree, NULL);
+	if(newPush==NULL){
+		printf("Fail kaelTree_push\n");
+	}
+	code = kaelTree_pop(&tree);
+	if(code!=KAEL_SUCCESS){
+		printf("Fail kaelTree_pop\n");
+	}
+
+
+	struct TestElement *secondElement = kaelTree_insert(&tree, setElementIndex, NULL);
+	if(secondElement == NULL ){
+		printf("Fail kaelTree_insert\n");
+	}
+	kaelTree_set(&tree, setElementIndex, &originalElement);
+	struct TestElement *secondElementGet = kaelTree_get(&tree, setElementIndex);
+	if(secondElement != secondElementGet ){
+		printf("Fail ptr kaelTree_get\n");
+	}
+	if(secondElement->string != secondElementGet->string ){
+		printf("Fail ptr->string kaelTree_get\n");
+	}
+	kaelTree_pop(&tree);
+
+	kaelTree_begin(&tree);
+	kaelTree_back(&tree);
+	uint16_t treeLength = kaelTree_length(&tree);
+	if(treeLength!=elementCount){
+		printf("Fail kaelTree_empty");
+	}
+
+	uint16_t isEmpty = kaelTree_empty(&tree);
+	if(isEmpty){
+		printf("Fail kaelTree_empty\n");
+	}
+
+
+	struct TestElement *currentElement = secondElement;
+	kaelTree_prev(&tree, (void**)&currentElement);
+	if(currentElement == NULL ){
+		printf("Fail kaelTree_get\n");
+	}
+	kaelTree_next(&tree, (void**)&currentElement);
+	if(currentElement != secondElement ){
+		printf("Fail kaelTree_next\n");
+	}
+
+
+	struct TestElement *treeElement = kaelTree_get(&tree, setElementIndex);
+	if(originalElement.number != treeElement->number){
+		printf("Element at index %u should be identical to originalElement.\n",setElementIndex);
+	}
+
+	kaelTree_free(&tree);
+
+
+	printf("kaelTree_functions_unit Done\n");
+}

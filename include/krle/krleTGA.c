@@ -225,14 +225,24 @@ Krle_header krle_createKRLEHeader(uint16_t width, uint16_t height, uint32_t leng
 /**
  * @brief Append jump run to krle string
  */
-void krle_packJumpRun(KaelTree *krleTree, uint32_t *jumpLength, uint32_t maxJump){
+uint8_t krle_packJumpRun(KaelTree *krleTree, uint32_t *jumpLength, uint32_t maxJump){
 	#if KRLE_EXTRA_DEBUGGING==1
 		printf("Jump runs ");
 	#endif
+	void *lastElement = NULL;
+
 	while(*jumpLength){
 		uint8_t runLength = kaelMath_min(*jumpLength, maxJump);
-		kaelTree_push(krleTree,&(uint8_t){KRLE_PIXEL_JUMP});
-		kaelTree_push(krleTree,&(uint8_t){runLength});
+
+		lastElement = kaelTree_push(krleTree,&(uint8_t){KRLE_PIXEL_JUMP});
+		if(lastElement == NULL){
+			return KAEL_ERR_NULL;
+		}
+
+		lastElement = kaelTree_push(krleTree,&(uint8_t){runLength});
+		if(lastElement == NULL){
+			return KAEL_ERR_NULL;
+		}
 		
 		#if KRLE_EXTRA_DEBUGGING==1
 			printf("%d ",runLength);
@@ -243,12 +253,13 @@ void krle_packJumpRun(KaelTree *krleTree, uint32_t *jumpLength, uint32_t maxJump
 	#if KRLE_EXTRA_DEBUGGING==1
 		printf("\n");
 	#endif
+	return KAEL_SUCCESS;
 }
 
 /**
  * @brief Append pixel run to krle string
  */
-void krle_packPixelRun(KaelTree *krleTree, uint8_t paletteIndex, uint32_t *pixelLength, uint32_t maxPixelLength){
+uint8_t krle_packPixelRun(KaelTree *krleTree, uint8_t paletteIndex, uint32_t *pixelLength, uint32_t maxPixelLength){
 	//Chain of same pixels ended
 	#if KRLE_EXTRA_DEBUGGING==1
 		printf("palette %u runs ", paletteIndex);
@@ -257,7 +268,11 @@ void krle_packPixelRun(KaelTree *krleTree, uint8_t paletteIndex, uint32_t *pixel
 	while(*pixelLength){
 		uint8_t runLength = kaelMath_min(*pixelLength, maxPixelLength);
 		uint8_t pixelByte = kaelMath_u8pack(paletteIndex, runLength);
-		kaelTree_push(krleTree,&(uint8_t){pixelByte});
+		void *lastElement = kaelTree_push(krleTree,&(uint8_t){pixelByte});
+		if(lastElement == NULL){
+			*pixelLength=0;
+			return KAEL_ERR_NULL;
+		}
 
 		#if KRLE_EXTRA_DEBUGGING==1
 			printf("%d ",runLength);
@@ -268,6 +283,8 @@ void krle_packPixelRun(KaelTree *krleTree, uint8_t paletteIndex, uint32_t *pixel
 	#if KRLE_EXTRA_DEBUGGING==1
 		printf("\n");
 	#endif
+
+	return KAEL_SUCCESS;
 }
 
 /**
@@ -370,7 +387,10 @@ void krle_pixelsToKRLE(KaelTree *krleTree, const Krle_LAB *labPalette, const uin
 			if(jumpLength){
 				//Opaque; Jump run ends
 				pixelCount+=jumpLength;
-				krle_packJumpRun(krleTree, &jumpLength, maxJump);
+				uint8_t code = krle_packJumpRun(krleTree, &jumpLength, maxJump);
+				if(code!=KAEL_SUCCESS){
+					break;
+				}
 
 				//break without increment
 				isJumpRun=0;
@@ -383,9 +403,9 @@ void krle_pixelsToKRLE(KaelTree *krleTree, const Krle_LAB *labPalette, const uin
 
 			if(!isTransparent){
 				//Opaque
-				//Sample pixel
 				Krle_LAB LABTriple = KRLE_MAGENTA_LAB;
 
+				//Sample pixel
 				if(sampleType==KRLE_LAB_AVG && stretchFactor > 1){
 					LABTriple = krle_LABAvgRow(TGAPixels, TGAWidth, TGAHeight, px.i, stretchFactor);
 				}else
@@ -405,7 +425,10 @@ void krle_pixelsToKRLE(KaelTree *krleTree, const Krle_LAB *labPalette, const uin
 			if((thisPixel!=prevPixel && pixelLength) || isTransparent){
 				//run longer than 1 ended OR next pixel is transparent
 				pixelCount+=pixelLength;
-				krle_packPixelRun(krleTree, prevPixel, &pixelLength, maxPixelLength);
+				uint8_t code = krle_packPixelRun(krleTree, prevPixel, &pixelLength, maxPixelLength);
+				if(code!=KAEL_SUCCESS){
+					break;
+				}
 			}
 			
 			if(isTransparent){

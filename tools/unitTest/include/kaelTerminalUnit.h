@@ -14,7 +14,7 @@
 
 #include "kaelygon/global/kaelMacros.h"
 
-#include "kaelygon/clock/clock.h" //cpu clock timer 
+#include "kaelygon/clock/clock.h" //cpu kaelClock timer 
 #include "kaelygon/terminal/terminal.h" //Text User Interface
 #include "kaelygon/string/string.h" //KaelStr
 
@@ -50,15 +50,15 @@ void kaelTerminal_unit() {
 		charBufPtr[i]=kaelStr_getCharPtr(&charBuffer[i]);
 	}
 
-	KaelClock clock;
-	kaelClock_init(&clock);
+	KaelClock kaelClock;
+	kaelClock_init(&kaelClock);
 
-	double targetTimeRatio = 1.0; //debug to verify clock
-	uint16_t testTickCount = (uint16_t)(targetTimeRatio*((double)clock.tickRate));
+	double targetTimeRatio = 0.25; //debug to verify kaelClock //0.25 seconds
+	uint16_t testTickCount = (uint16_t)(targetTimeRatio*((double)kaelClock.tickRate)); 
 	clock_t progStartTime = std_clock(); 
 
 	while (!kaelTui_getQuitFlag(&tui)) {
-		if(kaelClock_getTick(&clock) >= testTickCount){ 
+		if(kaelClock_getTick(&kaelClock) >= testTickCount){ 
 			break;
 		}
 
@@ -80,9 +80,9 @@ void kaelTerminal_unit() {
 			kaelStr_appendCstr(&charBuffer[0],"} ");
 
 			char tickStr[12];
-			sprintf(tickStr, "Tick %u:", (uint16_t)kaelClock_getTickHigh(&clock)); 
+			sprintf(tickStr, "Tick %u:", (uint16_t)kaelClock_getTickHigh(&kaelClock)); 
 			kaelStr_appendCstr(&charBuffer[0], tickStr);
-			sprintf(tickStr, "%u ", (uint16_t)kaelClock_getTick(&clock)); 
+			sprintf(tickStr, "%u ", (uint16_t)kaelClock_getTick(&kaelClock)); 
 			kaelStr_appendCstr(&charBuffer[0], tickStr);
 
          kaelStr_pushKstr(&printBuffer,&charBuffer[0]);
@@ -98,7 +98,7 @@ void kaelTerminal_unit() {
 
 		fflush(stdout);
 
-		kaelClock_sync(&clock); // sleep till next tick
+		kaelClock_sync(&kaelClock); // sleep till next tick
 	}
 	clock_t progEndTime=std_clock(); //debug 
 
@@ -119,8 +119,8 @@ void kaelTerminal_unit() {
 	double deltaRatioAbs = targetTimeRatio > resultTimeRatio ? targetTimeRatio - resultTimeRatio : resultTimeRatio- targetTimeRatio;
 
 	printf("%.4f sample discrepency. %.4f seconds\n",deltaRatioAbs*(double)AUDIO_SAMPLE_RATE, deltaRatioAbs*targetTimeRatio);
-	if( deltaRatioAbs > 1.0/clock.tickRate){ // +1 buffer lost
-		printf("Did you set cpu clock speed correctly when using __rdtsc?\n");
+	if( deltaRatioAbs > 1.0/kaelClock.tickRate){ // +1 buffer lost
+		printf("Did you set cpu kaelClock speed correctly when using __rdtsc?\n");
 	}
 
 	printf("\n");

@@ -14,36 +14,38 @@
 #include "./include/kaelRandUnit.h"
 #include "./include/kaelTerminalUnit.h"
 #include "./include/kaelStringUnit.h"
-
+#include "./include/krleConvert.h"
 
 
 void unitTest_runTests(){
 	void(*unitTest_func[])() = {
-		//kaelTerminal_unit	,
-		//kaelString_unit	,
-		//kaelTree_unit		,
-		//kaelRand_unit		,
+		kaelTerminal_unit,
+		kaelTree_drawSquares_unit,
+		kaelTree_functions_unit,
+		kaelString_unit,
+		kaelRand_unit,
+		krleTGA_unit,
 	};
 	uint16_t unitTestCount = sizeof(unitTest_func)/sizeof(unitTest_func[0]);
 
 	for(uint16_t i=0; i<unitTestCount; i++){
+		printf("\n------ Test %u ------\n\n", i);
 		unitTest_func[i]();
-		#if KAEL_DEBUG==1
-			kaelDebug_printInfoStr();
-		#endif
 	}
 }
 
 
-int main(){
+int main(int argc, char *argv[]){
 	#if KAEL_DEBUG==1
-		kaelDebug_allocGlobal();
+		if(argc>0){
+			kaelDebug_alloc(argv[0]);
+		}
 	#endif
 
 	unitTest_runTests();
 
 	#if KAEL_DEBUG==1
-		kaelDebug_freeGlobal();
+		kaelDebug_free();
 	#endif
 	
    return 0;

@@ -28,12 +28,12 @@
 #define GROWTH_DENOM 2 
 
 #define ELEMS_MAX (UINT16_MAX-1) // -1 that push ->length+1 can be done without a range change
-//#define ELEMS_MIN 0 //replaced by tree->reserve
 
 //---alloc and free---
 
 /**
  * @brief Initialize and allocate tree
+ * @return KAEL_SUCCESS or KAEL_ERR_NULL
  */
 uint8_t kaelTree_alloc(KaelTree *tree, const uint16_t size){
 	if(NULL_CHECK(tree)){return KAEL_ERR_NULL;}
@@ -61,12 +61,13 @@ void kaelTree_free(KaelTree *tree){
 
 /**
  * @brief Set apparent tree length. Shrinking won't invoke realloc
+ * @return Kael_infoCode
  */
 uint8_t kaelTree_resize(KaelTree *tree, const uint16_t length){
 	if(NULL_CHECK(tree,"resize")){return KAEL_ERR_NULL;}
 
 	if(length > tree->maxLength){ //Beyond last growth stage
-		//printf("Too many elements\n");
+		printf("Too many elements\n");
     	return KAEL_ERR_FULL;
 	} 
 
@@ -74,7 +75,6 @@ uint8_t kaelTree_resize(KaelTree *tree, const uint16_t length){
 	uint16_t minAlloc = kaelMath_max(newLength, tree->reserve);
 	uint16_t newAlloc = minAlloc * tree->width;
 
-	//Shrinking nor 0 size doesn't invoke realloc
 	if( newAlloc > tree->capacity ){ 
 		if(newAlloc > (ELEMS_MAX / GROWTH_NUMER) * GROWTH_DENOM){ //prevent overflow
 			newAlloc = ELEMS_MAX;
@@ -101,6 +101,7 @@ uint8_t kaelTree_resize(KaelTree *tree, const uint16_t length){
 
 /**
  * @brief Reserve minimum number of elements
+ * @return Kael_infoCode
  */
 uint8_t kaelTree_reserve(KaelTree *tree, const uint16_t length){
 	if(NULL_CHECK(tree,"reserve")){return KAEL_ERR_NULL;}
@@ -128,7 +129,8 @@ uint8_t kaelTree_reserve(KaelTree *tree, const uint16_t length){
 }
 
 /**
- * @brief Insert at index
+ * @brief Insert at index. NULL element is initialized as zero
+ * @return On success return newly pushed element address. On fail return NULL 
  */
 void *kaelTree_insert(KaelTree *tree, uint16_t index, const void *restrict element){
 	if(NULL_CHECK(tree)){return NULL;}
@@ -145,7 +147,7 @@ void *kaelTree_insert(KaelTree *tree, uint16_t index, const void *restrict eleme
 	if(dest==NULL){return NULL;}
 	memmove( (uint8_t *)dest + tree->width, dest, copyAmount );
 
-	if(element==NULL){ //No macro since NULL use is valid
+	if(element==NULL){
     	memset(dest, 0, tree->width);
 	}else{
     	memcpy(dest, element, tree->width);
@@ -155,6 +157,7 @@ void *kaelTree_insert(KaelTree *tree, uint16_t index, const void *restrict eleme
 
 /**
  * @brief Add element to tree. NULL element is initialized as zero
+ * @return On success return newly pushed element address. On fail return NULL 
  */
 void *kaelTree_push(KaelTree *tree, const void *restrict element){
 	if(NULL_CHECK(tree)){return NULL;}
@@ -166,7 +169,7 @@ void *kaelTree_push(KaelTree *tree, const void *restrict element){
    void *dest = kaelTree_back(tree); 
 	if(NULL_CHECK(dest)){return NULL;}
 	
-	if(element==NULL){ //No macro since NULL use is valid
+	if(element==NULL){ 
     	memset(dest, 0, tree->width);
 	}else{
     	memcpy(dest, element, tree->width);
@@ -177,6 +180,7 @@ void *kaelTree_push(KaelTree *tree, const void *restrict element){
 
 /**
  * @brief Remove last element
+ * @return Kael_infoCode
  */
 uint8_t kaelTree_pop(KaelTree *tree){
 	if(NULL_CHECK(tree) || (tree->length==0)){return KAEL_ERR_NULL;}
@@ -200,7 +204,9 @@ uint8_t kaelTree_pop(KaelTree *tree){
 
 //---setters---
 
-//set element byte width. Any existing data will be invalidated
+/**
+ * @brief Set element byte width. Any existing data will be invalidated
+ */
 void kaelTree_setWidth(KaelTree *tree, const uint16_t size){
 	if(NULL_CHECK(tree,"setSize")){return;}
 	tree->width=size;
@@ -228,6 +234,7 @@ uint16_t kaelTree_length(const KaelTree *tree){
 	return tree->length;
 }
 
+//@return 1 if NULL or empty. Return 0 if not empty
 uint16_t kaelTree_empty(const KaelTree *tree){
 	if(NULL_CHECK(tree)){return 1;}
 	return (tree->length==0);
@@ -255,7 +262,7 @@ void *kaelTree_back(const KaelTree *tree){
 	return elem;
 }
 
-//Get next element 
+//Set **current to next element 
 void kaelTree_next(const KaelTree *tree, void **current){
 	KAEL_ASSERT(current != NULL && tree != NULL);
 	void *next = (uint8_t *)(*current) + tree->width;
@@ -267,7 +274,7 @@ void kaelTree_next(const KaelTree *tree, void **current){
 	*current=next;
 }
 
-//Get previous element 
+//Set **current to previous element 
 void kaelTree_prev(const KaelTree *tree, void **current){
 	KAEL_ASSERT(current != NULL && tree != NULL);
 	void *prev = (uint8_t *)(*current) - tree->width;

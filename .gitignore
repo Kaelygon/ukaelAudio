@@ -11,5 +11,5 @@
 /doxygen/*
 /*.log
 /cachegrind*
-/assets/png/tga~
-/assets/png/png~
+/assets/png/*~
+/assets/tga/*~
