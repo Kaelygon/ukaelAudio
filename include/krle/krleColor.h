@@ -40,7 +40,6 @@ Krle_RGB krle_LABToRGB( Krle_LAB LABCol);
 float krle_labDistance(const Krle_LAB lab1, const Krle_LAB lab2);
 float krle_rgbDistance(const Krle_RGB rgb1, const Krle_RGB rgb2);
 int krle_palettizeLAB(const Krle_LAB *labPalette, const Krle_LAB labColor, uint16_t const length);
-void krle_debugColorDistance(const Krle_RGB rgbTriple, const Krle_RGB *palette, const uint8_t index);
 void unit_krle_printRGB24Pixels(const uint8_t *TGAPixels, const uint32_t pixelsTotal);
 
 //--- Row sampling ---

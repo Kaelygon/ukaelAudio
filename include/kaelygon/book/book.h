@@ -92,8 +92,8 @@ uint8_t kaelBook_isShapeInView(KaelBook *book, KaelBook_shape *shapePtr);
 uint8_t kaelBook_isColInView(KaelBook *book, KaelBook_shape *shapePtr, uint16_t shapeCol);
 uint8_t kaelBook_isRowInView(KaelBook *book, KaelBook_shape *shapePtr, uint16_t shapeRow);
 
-uint8_t kaelBook_isTopClip(KaelBook *book, KaelBook_shape *shapePtr, uint16_t shapeRow);
-uint8_t kaelBook_isBotClip(KaelBook *book, KaelBook_shape *shapePtr, uint16_t shapeRow);
+uint8_t kaelBook_isAboveShape(KaelBook *book, KaelBook_shape *shapePtr, uint16_t shapeRow);
+uint8_t kaelBook_isBelowShape(KaelBook *book, KaelBook_shape *shapePtr, uint16_t shapeRow);
 KaelBook_shape *kaelBook_getShapeAt(KaelBook *book, uint16_t viewCol, uint16_t viewRow);
 
 

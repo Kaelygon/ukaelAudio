@@ -27,6 +27,9 @@ typedef enum{
 	KRLE_LAB_AVG,
 }Krle_sampleType;
 
+#ifndef KRLE_PRINT_INFO
+	#define KRLE_PRINT_INFO 0
+#endif
 #ifndef KRLE_EXTRA_DEBUGGING
 	#define KRLE_EXTRA_DEBUGGING 0
 #endif

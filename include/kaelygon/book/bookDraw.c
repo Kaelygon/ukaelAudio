@@ -37,12 +37,14 @@ void kaelBook_solveSpaceMarker(KaelBook *book, KaelTui_rowBuffer *rowBuf, KaelBo
 		spaceCount -= moveCount; 
 		*col += moveCount;
 
-		if(*col >= shapePtr->size[0]){
+		uint8_t outsideVisibleCols = *col >= shapePtr->size[0];
+		if(outsideVisibleCols){
 			//Next row
 			*col=0;
 			(*row)++;
-			if( (*row >= shapePtr->size[1]) || kaelBook_isBotClip(book, shapePtr, *row) ){
-				//Beyond shape or last visible row
+			uint8_t outsideShape =*row >= shapePtr->size[1];
+			uint8_t outsideVisibleRows = kaelBook_isBelowShape(book, shapePtr, *row); 
+			if( outsideShape || outsideVisibleRows ){
 				return;
 			}
 			kaelBook_pushMovInShape(book, shapePtr, *col, *row);
@@ -118,7 +120,7 @@ void kaelBook_drawPixelString(KaelBook *book, KaelTui_rowBuffer *rowBuf, KaelBoo
 	uint16_t col=0;
 	uint16_t row=0;
 	
-	while( row < shapePtr->size[1] && ! kaelBook_isBotClip(book, shapePtr, row)){ //within shape
+	while( row < shapePtr->size[1] && ! kaelBook_isBelowShape(book, shapePtr, row)){ //within shape
 		if(rowBuf->readPtr[0]==0){
 			//Null terminate
 			break;
@@ -146,8 +148,8 @@ void kaelBook_drawPixelString(KaelBook *book, KaelTui_rowBuffer *rowBuf, KaelBoo
 				break;		
 		}
 
-		if(col >= shapePtr->size[0]){
-			//Move cursor to next row in shape
+		uint8_t isLastShapeCol = col >= shapePtr->size[0];
+		if(isLastShapeCol){
 			col = 0;
 			row++;
 			kaelBook_pushMovInShape(book, shapePtr, col, row);
@@ -164,12 +166,12 @@ void kaelBook_drawShapeString(KaelBook *book, KaelTui_rowBuffer *rowBuf, KaelBoo
 	uint16_t col=0;
 	uint16_t row=0;
 	
-	while( ! kaelBook_isBotClip(book, shapePtr, row)){ //within shape
+	while( ! kaelBook_isBelowShape(book, shapePtr, row)){ //within shape
 
 		kaelBook_parseChar(book, rowBuf, shapePtr, &col, &row);	
 
-		if(col >= shapePtr->size[0]){
-			//Move cursor to next row in shape
+		uint8_t isLastShapeCol = col >= shapePtr->size[0];
+		if(isLastShapeCol){
 			col = 0;
 			row++;
 			kaelBook_pushMovInShape(book, shapePtr, col, row);

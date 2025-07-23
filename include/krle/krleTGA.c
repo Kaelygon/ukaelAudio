@@ -50,13 +50,15 @@ void krle_TGAToKRLE(const char *TGAFile, const char *KRLEFile, uint8_t stretchFa
 
 
 	//Info printing
-	uint16_t compressedSize = KRLEHeader.length;
-	uint32_t stretchedPixels = TGAHeader.width*TGAHeader.height/stretchFactor;
-	float bytesPerPixel =  8.0*(float)compressedSize/(stretchedPixels);
-	float pixelsPerByte = (float)stretchedPixels/compressedSize;
-	printf("%u pixels converted to %u bytes\n", stretchedPixels, compressedSize);
-	printf("%.2f pixels per byte\n", pixelsPerByte);
-	printf("%.2f bits per pixel\n",bytesPerPixel);
+	#if KRLE_PRINT_INFO==1
+		uint16_t compressedSize = KRLEHeader.length;
+		uint32_t stretchedPixels = TGAHeader.width*TGAHeader.height/stretchFactor;
+		float bytesPerPixel =  8.0*(float)compressedSize/(stretchedPixels);
+		float pixelsPerByte = (float)stretchedPixels/compressedSize;
+		printf("%u pixels converted to %u bytes\n", stretchedPixels, compressedSize);
+		printf("%.2f pixels per byte\n", pixelsPerByte);
+		printf("%.2f bits per pixel\n",bytesPerPixel);
+	#endif
 }
 
 
@@ -417,9 +419,6 @@ void krle_pixelsToKRLE(KaelTree *krleTree, const Krle_LAB *labPalette, const uin
 				}
 
 				thisPixel = krle_palettizeLAB(labPalette, LABTriple, KRLE_PALETTE_SIZE);
-				#if KRLE_EXTRA_DEBUGGING==1
-					krle_debugColorDistance(LABTriple, krle_orchisPalette, thisPixel);
-				#endif
 			}
 
 			if((thisPixel!=prevPixel && pixelLength) || isTransparent){
@@ -451,7 +450,9 @@ void krle_pixelsToKRLE(KaelTree *krleTree, const Krle_LAB *labPalette, const uin
 	}
 	
 	//May differ from actual size since trailing jumps are ignored
-	printf("Wrote %d pixels into KRLE string\n",pixelCount);
+	#if KRLE_PRINT_INFO==1
+		printf("Wrote %d pixels into KRLE string\n",pixelCount);
+	#endif
 
 	//Null terminate
 	uint8_t *newElem = kaelTree_push(krleTree,&(uint8_t){'\0'});
@@ -557,7 +558,7 @@ uint32_t krle_KRLEToPixels(const uint8_t *KRLEString, uint8_t **TGAPixels, const
 	uint32_t totalPixels = header.width * header.height * header.ratio;
 	uint32_t px=0; //pixel index
 
-	if( NULL_CHECK(*TGAPixels)){
+	if( *TGAPixels == NULL ){
 		*TGAPixels = calloc( 4*totalPixels, sizeof(uint8_t)); //32bits per pixel stretched by header.ratio
 		if(NULL_CHECK(*TGAPixels)){
 			printf("TGAPixels failed to alloc\n");
@@ -584,19 +585,23 @@ uint32_t krle_KRLEToPixels(const uint8_t *KRLEString, uint8_t **TGAPixels, const
 		
 		if(code!=KRLE_SUCCESS){
 			//Illegal things by KRLE standards
-			if(code==KRLE_ERR_ZERO_JUMP){
-				printf("Zero jump is not allowed");
-			}else
-			if(code==KRLE_ERR_PIXEL_OVERFLOW){
-				printf("Read too many pixels from KRLE string\n");
-			}
+			#if KRLE_PRINT_INFO==1
+				if(code==KRLE_ERR_ZERO_JUMP){
+					printf("Zero jump is not allowed");
+				}else
+				if(code==KRLE_ERR_PIXEL_OVERFLOW){
+					printf("Read too many pixels from KRLE string\n");
+				}
+			#endif
 			break;
 		}
 		readHead++;
 	}
 
 
-	printf("Read %u pixels from KRLE string\n",px);
+	#if KRLE_PRINT_INFO==1
+		printf("Read %u pixels from KRLE string\n",px);
+	#endif
 	return px;
 }
 

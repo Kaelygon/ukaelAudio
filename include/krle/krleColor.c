@@ -166,19 +166,6 @@ int krle_palettizeLAB(const Krle_LAB *labPalette, const Krle_LAB labColor, uint1
 	return minIndex;
 }
 
-/**
- * @brief Convert RGB triple to LAB and calculate distance with palette LAB triple by index
- */
-void krle_debugColorDistance(Krle_RGB rgbTriple, const Krle_RGB *palette, const uint8_t index){
-	Krle_RGB newTriple = (Krle_RGB){
-		palette[index].r,
-		palette[index].g,
-		palette[index].b					
-	};
-	float colorDistance = krle_rgbDistance(newTriple, rgbTriple);
-   printf("palette %u delta %.2f\n", index, colorDistance);
-}
-
 void unit_krle_printRGB24Pixels(const uint8_t *TGAPixels, const uint32_t pixelsTotal){
 	for(uint32_t i=0; i<pixelsTotal; i++){
 		uint8_t b = TGAPixels[i*4+0];

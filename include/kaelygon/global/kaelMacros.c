@@ -97,14 +97,23 @@ void kaelDebug_storeNote(const char *note){
 
     //--- dummy alloc/free ---
     //Dummy arguments that we don't have to define guard every test file 
+    /**
+     * @brief dummy debug alloc
+     */
     uint8_t kaelDebug_alloc(__attribute__((unused)) const char *dummy){
         return KAEL_SUCCESS;
     }
 
+    /**
+     * @brief dummy debug free
+     */
     void kaelDebug_free(){
         fflush(stdout);
     }
 
+    /**
+     * @brief Null check without debug
+     */
     uint8_t kaelDebug_nullCheck(const void* ptr){
         return ptr==NULL ? 1 : 0;
     }

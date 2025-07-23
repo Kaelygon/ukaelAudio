@@ -15,6 +15,9 @@
 
 //------ CLOCK SYNC DEFINES ------
 
+
+#define CLOCK_SPEED_HZ 3704954300U //AMD Ryzen 5900x 3.7GHz
+
 //Audio will be 32768hz so that will be the default clock
 #ifndef AUDIO_SAMPLE_RATE
 	#define AUDIO_SAMPLE_RATE 32768U

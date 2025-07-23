@@ -16,15 +16,17 @@
 #include "./include/kaelStringUnit.h"
 #include "./include/krleConvert.h"
 
-
+//Some tests result is irrelevant as there's no checks of the result correctness.  
+//Mainly these made to find any unintentional NULL values (generated/kael.log) or valgrind errors
+//Could be better, but I rather spend the time writing the actual program than testing 
 void unitTest_runTests(){
 	void(*unitTest_func[])() = {
-		kaelTerminal_unit,
-		kaelTree_drawSquares_unit,
-		kaelTree_functions_unit,
+		kaelTerminal_unit, //Test clock in terminal loop example. Fails if kaelClock deviates too much from std clock(). 
+		kaelTree_drawSquares_unit, //Print ascii squares stored in branched kaelTree.
+		kaelTree_functions_unit, //Good test. Stores element, iterate, insert and compare if the data and pointers are unchanged.
 		kaelString_unit,
 		kaelRand_unit,
-		krleTGA_unit,
+		krleTGA_unit, //Good test. Convert TGA->KRLE->TGA twice and compare the results
 	};
 	uint16_t unitTestCount = sizeof(unitTest_func)/sizeof(unitTest_func[0]);
 
@@ -36,17 +38,13 @@ void unitTest_runTests(){
 
 
 int main(int argc, char *argv[]){
-	#if KAEL_DEBUG==1
-		if(argc>0){
-			kaelDebug_alloc(argv[0]);
-		}
-	#endif
+	if(argc>0){
+		kaelDebug_alloc(argv[0]);
+	}
 
 	unitTest_runTests();
 
-	#if KAEL_DEBUG==1
-		kaelDebug_free();
-	#endif
+	kaelDebug_free();
 	
    return 0;
 }

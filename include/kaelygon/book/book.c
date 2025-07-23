@@ -166,7 +166,7 @@ uint8_t kaelBook_isRowInView(KaelBook *book, KaelBook_shape *shapePtr, uint16_t 
 /**
  * @brief is shape char above top? (shape space)
  */
-uint8_t kaelBook_isTopClip(KaelBook *book, KaelBook_shape *shapePtr, uint16_t shapeRow){
+uint8_t kaelBook_isAboveShape(KaelBook *book, KaelBook_shape *shapePtr, uint16_t shapeRow){
 	KAEL_ASSERT(book!=NULL || shapePtr!=NULL);
 	return shapeRow + shapePtr->pos[1] < book->viewPos[1];
 }
@@ -174,7 +174,7 @@ uint8_t kaelBook_isTopClip(KaelBook *book, KaelBook_shape *shapePtr, uint16_t sh
 /**
  * @brief is shape char beyond bottom? (shape space)
  */
-uint8_t kaelBook_isBotClip(KaelBook *book, KaelBook_shape *shapePtr, uint16_t shapeRow){
+uint8_t kaelBook_isBelowShape(KaelBook *book, KaelBook_shape *shapePtr, uint16_t shapeRow){
 	KAEL_ASSERT(book!=NULL || shapePtr!=NULL);
 	return shapeRow + shapePtr->pos[1] >= book->viewPos[1] + book->size[1];
 }
@@ -281,7 +281,7 @@ void kaelBook_pushMarkerStyle(KaelTui_rowBuffer *rowBuf, uint8_t rawByte){
 }
 
 /**
- * @brief Write cursor position into buffer in viewport space
+ * @brief Write draw-cursor position into buffer in viewport space
  */
 void kaelBook_pushMovInShape(KaelBook *book, KaelBook_shape *shapePtr, uint16_t col, uint16_t row){
 	uint16_t movPos[2] = {
